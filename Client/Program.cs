@@ -53,7 +53,10 @@ namespace Client
             // scoped lifetime
 
             // For the CRUD demos
-            serviceCollection.AddScoped<IService, CRUDService>();
+            //serviceCollection.AddScoped<IService, CRUDService>();
+
+            // For stream demos
+            serviceCollection.AddScoped<IService, StreamService>();
 
             // For the partial update demos
             // serviceCollection.AddScoped<IIntegrationService, PartialUpdateService>();
