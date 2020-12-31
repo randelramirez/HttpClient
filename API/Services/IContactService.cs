@@ -1,5 +1,4 @@
-﻿
-using Core;
+﻿using Core;
 using Core.ViewModels;
 using System;
 using System.Collections.Generic;
