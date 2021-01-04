@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Client.Services;
+using Client.TypedClients;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -49,6 +51,8 @@ namespace Client
                 builder.AddDebug();
             });
 
+
+
             // register the integration service on our container with a 
             // scoped lifetime
 
@@ -56,19 +60,36 @@ namespace Client
             //serviceCollection.AddScoped<IService, CRUDService>();
 
             // For stream demos
-            serviceCollection.AddScoped<IService, StreamService>();
-
-            // For the partial update demos
-            // serviceCollection.AddScoped<IIntegrationService, PartialUpdateService>();
-
-            // For the stream demos
-            //serviceCollection.AddScoped<IIntegrationService, StreamService>();
+            //serviceCollection.AddScoped<IService, StreamService>();
 
             // For the cancellation demos
             // serviceCollection.AddScoped<IIntegrationService, CancellationService>();
 
             // For the HttpClientFactory demos
-            // serviceCollection.AddScoped<IIntegrationService, HttpClientFactoryInstanceManagementService>();
+            serviceCollection.AddScoped<IService, HttpClientFactoryManagementService>();
+
+
+
+            // Using a named client
+            serviceCollection.AddHttpClient("ContactsClient", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:44354/");
+                client.Timeout = new TimeSpan(0, 0, 30);
+                client.DefaultRequestHeaders.Clear();
+            })
+            .ConfigurePrimaryHttpMessageHandler(handler =>
+            new HttpClientHandler()
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip
+            });
+
+            // using Typed client
+            serviceCollection.AddHttpClient<ContactsClient>()
+               .ConfigurePrimaryHttpMessageHandler(handler =>
+                  new HttpClientHandler()
+                  {
+                      AutomaticDecompression = System.Net.DecompressionMethods.GZip
+                  });
 
             // For the dealing with errors and faults demos
             // serviceCollection.AddScoped<IIntegrationService, DealingWithErrorsAndFaultsService>();
