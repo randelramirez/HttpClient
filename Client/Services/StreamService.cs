@@ -63,16 +63,25 @@ namespace Client.Services
                 "api/contacts/");
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            using var response = await httpClient.SendAsync(request);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
 
-            var stream = await response.Content.ReadAsStreamAsync();
+            //var stream = await response.Content.ReadAsStreamAsync();
 
-            using var streamReader = new StreamReader(stream);
-            using var jsonTextReader = new JsonTextReader(streamReader);
-            var jsonSerializer = new JsonSerializer();
+            //using var streamReader = new StreamReader(stream);
+            //using var jsonTextReader = new JsonTextReader(streamReader);
+            //var jsonSerializer = new JsonSerializer();
 
-            var contacts = jsonSerializer.Deserialize<List<ContactViewModel>>(jsonTextReader);
+            //var contacts = jsonSerializer.Deserialize<List<ContactViewModel>>(jsonTextReader);
+
+
+            var content = await response.Content.ReadAsStringAsync();
+            var contacts = new List<ContactViewModel>();
+            if (response.Content.Headers.ContentType.MediaType == "application/json")
+            {
+                contacts = JsonConvert.DeserializeObject<List<ContactViewModel>>(content);
+            }
+
 
             // do something with the contacts   
             foreach (var contact in contacts)
@@ -201,16 +210,25 @@ namespace Client.Services
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
 
-            using var response = await httpClient.SendAsync(request);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
 
-            var stream = await response.Content.ReadAsStreamAsync();
+            //var stream = await response.Content.ReadAsStreamAsync();
 
-            using var streamReader = new StreamReader(stream, new UTF8Encoding(), true, 1024, false);
-            using var jsonTextReader = new JsonTextReader(streamReader);
-            var jsonSerializer = new JsonSerializer();
+            //using var streamReader = new StreamReader(stream, new UTF8Encoding(), true, 1024, false);
+            //using var jsonTextReader = new JsonTextReader(streamReader);
+            //var jsonSerializer = new JsonSerializer();
             Console.WriteLine("Reading response....");
-            var createdContact = jsonSerializer.Deserialize<ContactViewModel>(jsonTextReader);
+            //var createdContact = jsonSerializer.Deserialize<ContactViewModel>(jsonTextReader);
+
+
+            var content = await response.Content.ReadAsStringAsync();
+            ContactViewModel createdContact = default;
+            if (response.Content.Headers.ContentType.MediaType == "application/json")
+            {
+                createdContact = JsonConvert.DeserializeObject<ContactViewModel>(content);
+            }
+
             Console.WriteLine($"Name: {createdContact.Name}, Address: {createdContact.Address}");
         }
     }
