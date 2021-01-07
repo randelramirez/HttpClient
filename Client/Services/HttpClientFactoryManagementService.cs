@@ -1,5 +1,4 @@
 ﻿using Client.TypedClients;
-using Core;
 using Core.ViewModels;
 using Newtonsoft.Json;
 using System;

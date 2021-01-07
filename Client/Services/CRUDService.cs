@@ -172,7 +172,6 @@ namespace Client.Services
             //Console.WriteLine(content); content is empty 
         }
 
-
         public async Task PatchContactThroughHttpRequestMessage()
         {
             // create a contact and then update it
