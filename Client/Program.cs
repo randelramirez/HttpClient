@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Client.MessageHandlers;
 using Client.Services;
 using Client.TypedClients;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,8 +55,6 @@ namespace Client
             // For the HttpClientFactory demos
             //serviceCollection.AddScoped<IService, HttpClientFactoryManagementService>();
 
-
-
             // Using a named client
             serviceCollection.AddHttpClient("ContactsClient", client =>
             {
@@ -68,19 +67,36 @@ namespace Client
                 AutomaticDecompression = System.Net.DecompressionMethods.GZip
             });
 
+            serviceCollection.AddHttpClient("ContactsClientCustomHandler", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:44354/");
+                client.Timeout = new TimeSpan(0, 0, 30);
+                client.DefaultRequestHeaders.Clear();
+            })
+            // We use 20 seconds at least for this demo so that we can differtiate timeout and cancelled exceptions 
+            // (the httpclient have 30 seconds before timeout and then it throws a cancelled exception)
+           .AddHttpMessageHandler(handler => new TimeOutDelegatingHandler(TimeSpan.FromSeconds(20)))
+           .AddHttpMessageHandler(handler => new RetryPolicyDelegatingHandler(2))
+           .ConfigurePrimaryHttpMessageHandler(handler =>
+           new HttpClientHandler()
+           {
+               AutomaticDecompression = System.Net.DecompressionMethods.GZip
+           });
+
+
             // using Typed client
             serviceCollection.AddHttpClient<ContactsClient>()
-               .ConfigurePrimaryHttpMessageHandler(handler =>
-                  new HttpClientHandler()
-                  {
-                      AutomaticDecompression = System.Net.DecompressionMethods.GZip
-                  });
+            .ConfigurePrimaryHttpMessageHandler(handler =>
+                 new HttpClientHandler()
+                 {
+                     AutomaticDecompression = System.Net.DecompressionMethods.GZip
+                 });
 
             // For the dealing with errors and faults demos
-            serviceCollection.AddScoped<IService, ErrorHandlingService>();
+            //serviceCollection.AddScoped<IService, ErrorHandlingService>();
 
             // For the custom http handlers demos
-            // serviceCollection.AddScoped<IIntegrationService, HttpHandlersService>();     
+            serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
         }
     }
 }

@@ -38,8 +38,8 @@ namespace Client.Services
 
         public async Task GetContactsithRetryPolicy(CancellationToken cancellationToken)
         {
-            var contact = await GetContacts();
-            var httpClient = httpClientFactory.CreateClient("ContactsClient");
+            //var contact = await GetContacts();
+            var httpClient = httpClientFactory.CreateClient("ContactsClientCustomHandler");
 
             //var request = new HttpRequestMessage(
             //    HttpMethod.Get,
