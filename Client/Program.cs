@@ -78,11 +78,10 @@ namespace Client
            .AddHttpMessageHandler(handler => new TimeOutDelegatingHandler(TimeSpan.FromSeconds(20)))
            .AddHttpMessageHandler(handler => new RetryPolicyDelegatingHandler(2))
            .ConfigurePrimaryHttpMessageHandler(handler =>
-           new HttpClientHandler()
-           {
-               AutomaticDecompression = System.Net.DecompressionMethods.GZip
-           });
-
+                new HttpClientHandler()
+                {
+                    AutomaticDecompression = System.Net.DecompressionMethods.GZip
+                });
 
             // using Typed client
             serviceCollection.AddHttpClient<ContactsClient>()

@@ -38,8 +38,7 @@ namespace Client.TypedClients
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
 
-            using var response = await client.SendAsync(request,
-              HttpCompletionOption.ResponseHeadersRead);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             var stream = await response.Content.ReadAsStreamAsync();
             response.EnsureSuccessStatusCode();
             using var streamReader = new StreamReader(stream, new UTF8Encoding(), true, 1024, false);
