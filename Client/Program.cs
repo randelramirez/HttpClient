@@ -37,23 +37,12 @@ namespace Client
 
         private static void ConfigureServices(IServiceCollection serviceCollection)
         {
-            // add loggers           
-            //serviceCollection.AddSingleton(LoggerFactory.Create(builder => 
-            //{
-            //    builder.AddConsole();
-            //    builder.AddDebug();
-            //}));
-         
-
             serviceCollection.AddLogging(builder =>
             {
                 builder.AddConsole();
                 builder.AddDebug();
             });
-
-
-
-            // register the integration service on our container with a 
+            // register IService on our container with a 
             // scoped lifetime
 
             // For the CRUD demos
@@ -62,11 +51,8 @@ namespace Client
             // For stream demos
             //serviceCollection.AddScoped<IService, StreamService>();
 
-            // For the cancellation demos
-            // serviceCollection.AddScoped<IIntegrationService, CancellationService>();
-
             // For the HttpClientFactory demos
-            serviceCollection.AddScoped<IService, HttpClientFactoryManagementService>();
+            //serviceCollection.AddScoped<IService, HttpClientFactoryManagementService>();
 
 
 
@@ -77,8 +63,7 @@ namespace Client
                 client.Timeout = new TimeSpan(0, 0, 30);
                 client.DefaultRequestHeaders.Clear();
             })
-            .ConfigurePrimaryHttpMessageHandler(handler =>
-            new HttpClientHandler()
+            .ConfigurePrimaryHttpMessageHandler(handler => new HttpClientHandler()
             {
                 AutomaticDecompression = System.Net.DecompressionMethods.GZip
             });
@@ -92,7 +77,7 @@ namespace Client
                   });
 
             // For the dealing with errors and faults demos
-            // serviceCollection.AddScoped<IIntegrationService, DealingWithErrorsAndFaultsService>();
+            serviceCollection.AddScoped<IService, ErrorHandlingService>();
 
             // For the custom http handlers demos
             // serviceCollection.AddScoped<IIntegrationService, HttpHandlersService>();     
