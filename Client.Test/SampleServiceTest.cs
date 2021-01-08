@@ -10,7 +10,6 @@ using Xunit;
 
 namespace Client.Test
 {
-
     // Note for the following unit tests, we can actually replace the handler stubs as using Moq objects
     public class SampleServiceTest
     {
