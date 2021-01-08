@@ -1,37 +1,30 @@
 ﻿using Core.ViewModels;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
-namespace Client.Services
+namespace Client
 {
-    public class ErrorHandlingService : IService
+    public class SampleService
     {
-        private readonly IHttpClientFactory httpClientFactory;
+        private readonly HttpClient httpClient;
 
-        public ErrorHandlingService(IHttpClientFactory httpClientFactory)
+        public SampleService(HttpClient httpClient)
         {
-            this.httpClientFactory = httpClientFactory;
+            this.httpClient = httpClient;
+            this.httpClient.BaseAddress = new Uri("https://localhost:44354/");
         }
 
-        public async Task Run()
+        public async Task<IEnumerable<ContactViewModel>> GetContactsAsStream()
         {
-            await GetContactAndDealWithInvalidResponses();
-        }
-
-        private async Task GetContactAndDealWithInvalidResponses()
-        {
-            var httpClient = httpClientFactory.CreateClient("ContactsClient");
-
-            // we are passing a non-existent ID
             var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                "api/contacts/030a43b0-f9a5-405a-811c-bf342524b2be");
+              HttpMethod.Get,
+              "api/contacts/");
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
 
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
             if (!response.IsSuccessStatusCode)
@@ -41,12 +34,12 @@ namespace Client.Services
                 {
                     // show this to the user
                     Console.WriteLine("The requested contact cannot be found.");
-                    return;
+                    return null;
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
                     // trigger a login flow
-                    return;
+                    throw new UnauthorizedApiAccessException();
                 }
                 response.EnsureSuccessStatusCode();
             }
@@ -55,9 +48,7 @@ namespace Client.Services
             using var streamReader = new StreamReader(stream);
             using var jsonTextReader = new JsonTextReader(streamReader);
             var jsonSerializer = new JsonSerializer();
-            var contact = jsonSerializer.Deserialize<ContactViewModel>(jsonTextReader);
-
-            Console.WriteLine($"Name: {contact.Name}, Address: {contact.Address}");
+            return jsonSerializer.Deserialize<IEnumerable<ContactViewModel>>(jsonTextReader);
         }
     }
 }
