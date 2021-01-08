@@ -115,7 +115,6 @@ namespace Client.Services
             var createdContact = JsonConvert.DeserializeObject<ContactViewModel>(content);
             Console.WriteLine($"Name: {createdContact.Name}, Address: {createdContact.Address}");
             return createdContact;
-
         }
 
         public async Task UpdateContact()
@@ -147,10 +146,8 @@ namespace Client.Services
             var content = await response.Content.ReadAsStringAsync();
             //Console.WriteLine(content); content is empty 
 
-
             var updatedContact = await GetContact(contactToUpdateViewModel.Id);
             Console.WriteLine($"Name after update: {updatedContact.Name}, Address after update: {updatedContact.Address}");
-
         }
 
         private async Task DeleteContact()

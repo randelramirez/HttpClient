@@ -10,9 +10,7 @@ using Xunit;
 
 namespace Client.Test
 {
-
     // Note for the following unit tests, we can actually replace the handler stubs as using Moq objects
-
     public class SampleServiceTest
     {
         [Fact]
@@ -31,9 +29,10 @@ namespace Client.Test
         public void GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException_WithMoq()
         {
             var unauthorizedResponseHttpMessageHandlerMock = new Mock<HttpMessageHandler>();
+            // so we can setup a protected method named SendAsync inside HttpMessageHandler
             unauthorizedResponseHttpMessageHandlerMock.Protected()
                   .Setup<Task<HttpResponseMessage>>(
-                  nameof(HttpClient.SendAsync),
+                  "SendAsync",
                   ItExpr.IsAny<HttpRequestMessage>(),
                   ItExpr.IsAny<CancellationToken>()
                ).ReturnsAsync(new HttpResponseMessage()
@@ -43,10 +42,8 @@ namespace Client.Test
             var httpClient = new HttpClient(unauthorizedResponseHttpMessageHandlerMock.Object);
             var testableClass = new SampleService(httpClient);
 
-
-            Assert.ThrowsAsync<UnauthorizedApiAccessException>(
-                () => testableClass.GetContactsAsStream());
-
+            Assert.ThrowsAsync<UnauthorizedApiAccessException>(() 
+                => testableClass.GetContactsAsStream());
         }
 
         [Fact]
@@ -58,7 +55,6 @@ namespace Client.Test
             //var cancellationTokenSource = new CancellationTokenSource();
             var data = await testableClass.GetContactsAsStream();
             Assert.Equal(2, data.Count());
-           
         }
     }
 }

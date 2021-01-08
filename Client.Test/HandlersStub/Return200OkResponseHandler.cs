@@ -10,7 +10,6 @@ namespace Client.Test.HandlersStub
 {
     public class Return200OkResponseHandler : HttpMessageHandler
     {
-
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -28,7 +27,6 @@ namespace Client.Test.HandlersStub
                 Address = "Test"
             });
 
-           
             var httpResponseMessage = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
             httpResponseMessage.Content = JsonContent.Create(data);
             return Task.FromResult(httpResponseMessage);
