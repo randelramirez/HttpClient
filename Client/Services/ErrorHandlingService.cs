@@ -33,35 +33,31 @@ namespace Client.Services
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
 
-            using (var response = await httpClient.SendAsync(request,
-                HttpCompletionOption.ResponseHeadersRead))
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
             {
-                if (!response.IsSuccessStatusCode)
+                // inspect the status code
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    // inspect the status code
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        // show this to the user
-                        Console.WriteLine("The requested contact cannot be found.");
-                        return;
-                    }
-                    else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                    {
-                        // trigger a login flow
-                        return;
-                    }
-                    response.EnsureSuccessStatusCode();
+                    // show this to the user
+                    Console.WriteLine("The requested contact cannot be found.");
+                    return;
                 }
-
-                var stream = await response.Content.ReadAsStreamAsync();
-                using var streamReader = new StreamReader(stream);
-                using var jsonTextReader = new JsonTextReader(streamReader);
-                var jsonSerializer = new JsonSerializer();
-                var contact = jsonSerializer.Deserialize<ContactViewModel>(jsonTextReader);
-
-                Console.WriteLine($"Name: {contact.Name}, Address: {contact.Address}");
-
+                else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    // trigger a login flow
+                    return;
+                }
+                response.EnsureSuccessStatusCode();
             }
+
+            var stream = await response.Content.ReadAsStreamAsync();
+            using var streamReader = new StreamReader(stream);
+            using var jsonTextReader = new JsonTextReader(streamReader);
+            var jsonSerializer = new JsonSerializer();
+            var contact = jsonSerializer.Deserialize<ContactViewModel>(jsonTextReader);
+
+            Console.WriteLine($"Name: {contact.Name}, Address: {contact.Address}");
         }
     }
 }
