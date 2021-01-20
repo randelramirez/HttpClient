@@ -58,10 +58,10 @@ namespace Client
 
 
             // For the dealing with errors and faults demos
-            serviceCollection.AddScoped<IService, ErrorHandlingService>();
+            //serviceCollection.AddScoped<IService, ErrorHandlingService>();
 
             // For the custom http handlers demos
-            //serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
+            serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
         }
     }
 }

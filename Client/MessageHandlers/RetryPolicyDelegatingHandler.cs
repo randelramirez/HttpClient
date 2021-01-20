@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,6 +33,10 @@ namespace Client.MessageHandlers
                 {
                     return response;
                 }
+
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Retrying...");
+                Console.ResetColor();
             }
             return response;
         }

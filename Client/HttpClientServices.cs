@@ -16,7 +16,7 @@ namespace Client
         {
             services.ConfigureNamedClient();
             services.ConfigureClientWithCustomHandler();
-            services.ConfigureNamedClient();
+            services.ConfigureTypedClient();
             
             return services;
         }
