@@ -33,6 +33,7 @@ namespace Client.MessageHandlers
             }
             catch (OperationCanceledException ex)
             {
+                // if there's an exception but it was not cancelled, it's a timeout
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     throw new TimeoutException("The request timed out.", ex);
