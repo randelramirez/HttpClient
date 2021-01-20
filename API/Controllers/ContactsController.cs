@@ -31,6 +31,19 @@ namespace API.Controllers
             return Ok(await this.service.SearchContactsByNameAsync(nameFilter));
         }
 
+        [Route(nameof(ContactsController.GetContactsLongProcess))]
+        [HttpGet()]
+        public async Task<ActionResult<IEnumerable<ContactViewModel>>> GetContactsLongProcess([FromQuery(Name = "name")] string nameFilter)/*Lets use name as the query key*/
+        {
+            await Task.Delay(32000);
+            if (string.IsNullOrEmpty(nameFilter))
+            {
+                return Ok(await this.service.GetAllAsync());
+            }
+
+            return Ok(await this.service.SearchContactsByNameAsync(nameFilter));
+        }
+
         //[HttpGet("{contactId}", Name = "[controller]." + nameof(ContactsController.GetContactById))]
         [HttpGet("{contactId}", Name = nameof(ContactsController.GetContactById))]
         public async Task<ActionResult<ContactViewModel>> GetContactById([FromRoute] Guid contactId)

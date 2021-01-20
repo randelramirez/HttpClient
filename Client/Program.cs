@@ -75,7 +75,7 @@ namespace Client
             })
             // We use 20 seconds at least for this demo so that we can differtiate timeout and cancelled exceptions 
             // (the httpclient have 30 seconds before timeout and then it throws a cancelled exception)
-           .AddHttpMessageHandler(handler => new TimeOutDelegatingHandler(TimeSpan.FromSeconds(20)))
+           .AddHttpMessageHandler(handler => new TimeOutDelegatingHandler(TimeSpan.FromSeconds(15)))
            .AddHttpMessageHandler(handler => new RetryPolicyDelegatingHandler(2))
            .ConfigurePrimaryHttpMessageHandler(handler =>
                 new HttpClientHandler()
@@ -92,10 +92,10 @@ namespace Client
                  });
 
             // For the dealing with errors and faults demos
-            //serviceCollection.AddScoped<IService, ErrorHandlingService>();
+            serviceCollection.AddScoped<IService, ErrorHandlingService>();
 
             // For the custom http handlers demos
-            serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
+            //serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
         }
     }
 }
