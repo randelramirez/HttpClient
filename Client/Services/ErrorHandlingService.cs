@@ -23,7 +23,8 @@ namespace Client.Services
         public async Task Run()
         {
             //await GetContactAndDealWithInvalidResponses();
-            await GetContactsLongProcessWillTimeout();
+            //await GetContactsLongProcessWillTimeout();
+            await GetContactsLongProcessHandleExceptionsForNET5();
         }
 
         private async Task GetContactAndDealWithInvalidResponses()
@@ -69,9 +70,9 @@ namespace Client.Services
         {
             var cancellationToken = new CancellationTokenSource();
 
-            // if we want to force cancellation and not a timeout
+            // NOTE: if we want to force cancellation and not a timeout
             //cancellationToken.CancelAfter(5000); 
-            
+
             try
             {
                 // take note, we are using the named instance not the typed instance
@@ -104,6 +105,49 @@ namespace Client.Services
             {
                 // Handle timeout.
                 Console.WriteLine("Timed out: " + ex.Message);
+            }
+        }
+
+        public async Task GetContactsLongProcessHandleExceptionsForNET5()
+        {
+            var cancellationToken = new CancellationTokenSource();
+
+            // NOTE: if we want to force cancellation and not a timeout
+            //cancellationToken.CancelAfter(5000);
+
+            try
+            {
+                // take note, we are using the named instance not the typed instance
+                var httpClient = httpClientFactory.CreateClient("ContactsClient");
+                var response = await httpClient.GetAsync("api/contacts/GetContactsLongProcess", cancellationToken.Token);
+                response.EnsureSuccessStatusCode();
+                var content = await response.Content.ReadAsStringAsync();
+                var contacts = new List<ContactViewModel>();
+                if (response.Content.Headers.ContentType.MediaType == "application/json")
+                {
+                    contacts = JsonConvert.DeserializeObject<List<ContactViewModel>>(content);
+                }
+                else if (response.Content.Headers.ContentType.MediaType == "application/xml")
+                {
+                    var serializer = new XmlSerializer(typeof(List<ContactViewModel>));
+                    contacts = (List<ContactViewModel>)serializer.Deserialize(new StringReader(content));
+                }
+
+                foreach (var contact in contacts)
+                {
+                    Console.WriteLine($"Name: {contact.Name}, Address: {contact.Address}");
+                }
+            }
+            // Filter by InnerException.
+            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+            {
+                // Handle timeout.
+                Console.WriteLine("Timed out: " + ex.Message);
+            }
+            catch (TaskCanceledException ex)
+            {
+                // Handle cancellation.
+                Console.WriteLine("Canceled: " + ex.Message);
             }
         }
     }
