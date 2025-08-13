@@ -14,19 +14,19 @@ namespace Client.Test
     public class SampleServiceTest
     {
         [Fact]
-        public void GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException()
+        public async Task GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException()
         {
             var httpClient = new HttpClient(new Return401UnauthorizedResponseHandler());
             var testableClass = new SampleService(httpClient);
 
             //var cancellationTokenSource = new CancellationTokenSource();
 
-            Assert.ThrowsAsync<UnauthorizedApiAccessException>(
+            await Assert.ThrowsAsync<UnauthorizedApiAccessException>(
                 () => testableClass.GetContactsAsStream());
         }
 
         [Fact]
-        public void GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException_WithMoq()
+        public async Task GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException_WithMoq()
         {
             var unauthorizedResponseHttpMessageHandlerMock = new Mock<HttpMessageHandler>();
             // so we can setup a protected method named SendAsync inside HttpMessageHandler
@@ -42,7 +42,7 @@ namespace Client.Test
             var httpClient = new HttpClient(unauthorizedResponseHttpMessageHandlerMock.Object);
             var testableClass = new SampleService(httpClient);
 
-            Assert.ThrowsAsync<UnauthorizedApiAccessException>(() 
+            await Assert.ThrowsAsync<UnauthorizedApiAccessException>(() 
                 => testableClass.GetContactsAsStream());
         }
 
