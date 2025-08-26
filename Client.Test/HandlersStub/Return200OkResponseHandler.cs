@@ -13,22 +13,28 @@ namespace Client.Test.HandlersStub
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var data = new List<ContactViewModel>();
-            data.Add(new ContactViewModel() 
-            {  
-                Id = Guid.NewGuid(),
-                Name = "Test",
-                Address = "Test"
-            });
-            data.Add(new ContactViewModel()
-            {
-                Id = Guid.NewGuid(),
-                Name = "Test",
-                Address = "Test"
-            });
+            // Using C# 12/13 collection expression syntax for cleaner code
+            List<ContactViewModel> data = 
+            [
+                new ContactViewModel() 
+                {  
+                    Id = Guid.NewGuid(),
+                    Name = "Test",
+                    Address = "Test"
+                },
+                new ContactViewModel()
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Test",
+                    Address = "Test"
+                }
+            ];
 
-            var httpResponseMessage = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
-            httpResponseMessage.Content = JsonContent.Create(data);
+            var httpResponseMessage = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(data)
+            };
+            
             return Task.FromResult(httpResponseMessage);
         }
     }

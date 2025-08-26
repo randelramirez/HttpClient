@@ -16,11 +16,11 @@ namespace Client.Test
         [Fact]
         public async Task GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException()
         {
-            var httpClient = new HttpClient(new Return401UnauthorizedResponseHandler());
+            // Arrange
+            using var httpClient = new HttpClient(new Return401UnauthorizedResponseHandler());
             var testableClass = new SampleService(httpClient);
 
-            //var cancellationTokenSource = new CancellationTokenSource();
-
+            // Act & Assert
             await Assert.ThrowsAsync<UnauthorizedApiAccessException>(
                 () => testableClass.GetContactsAsStream());
         }
@@ -28,6 +28,7 @@ namespace Client.Test
         [Fact]
         public async Task GetContactsAsStream_On401Response_MustThrowUnauthorizedApiAccessException_WithMoq()
         {
+            // Arrange
             var unauthorizedResponseHttpMessageHandlerMock = new Mock<HttpMessageHandler>();
             // so we can setup a protected method named SendAsync inside HttpMessageHandler
             unauthorizedResponseHttpMessageHandlerMock.Protected()
@@ -39,9 +40,11 @@ namespace Client.Test
                {
                    StatusCode = HttpStatusCode.Unauthorized
                });
-            var httpClient = new HttpClient(unauthorizedResponseHttpMessageHandlerMock.Object);
+            
+            using var httpClient = new HttpClient(unauthorizedResponseHttpMessageHandlerMock.Object);
             var testableClass = new SampleService(httpClient);
 
+            // Act & Assert
             await Assert.ThrowsAsync<UnauthorizedApiAccessException>(() 
                 => testableClass.GetContactsAsStream());
         }
@@ -49,11 +52,14 @@ namespace Client.Test
         [Fact]
         public async Task GetContactsAsStream_On200Response_ReturnsCorrectNumberOfContacts()
         {
-            var httpClient = new HttpClient(new Return200OkResponseHandler());
+            // Arrange
+            using var httpClient = new HttpClient(new Return200OkResponseHandler());
             var testableClass = new SampleService(httpClient);
 
-            //var cancellationTokenSource = new CancellationTokenSource();
+            // Act
             var data = await testableClass.GetContactsAsStream();
+            
+            // Assert
             Assert.Equal(2, data.Count());
         }
     }
