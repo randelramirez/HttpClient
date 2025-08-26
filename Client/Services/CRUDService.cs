@@ -15,13 +15,19 @@ namespace Client.Services
 {
     public class CRUDService : IService
     {
-        private static HttpClient httpClient = new HttpClient();
+        private readonly HttpClient httpClient;
 
         public CRUDService()
         {
+            httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri("https://localhost:44354/");
             httpClient.Timeout = new TimeSpan(0, 0, 30);
             httpClient.DefaultRequestHeaders.Clear();
+        }
+
+        public CRUDService(HttpClient client)
+        {
+            httpClient = client;
         }
 
         public async  Task Run()

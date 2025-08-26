@@ -61,7 +61,25 @@ namespace Client
             //serviceCollection.AddScoped<IService, ErrorHandlingService>();
 
             // For the custom http handlers demos
-            serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
+            //serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
+
+            // For authentication demos
+            //serviceCollection.AddScoped<IService, AuthenticationService>();
+
+            // For file upload demos
+            //serviceCollection.AddScoped<IService, FileUploadService>();
+
+            // For concurrency demos
+            //serviceCollection.AddScoped<IService, ConcurrencyService>();
+
+            // For custom headers demos
+            //serviceCollection.AddScoped<IService, CustomHeadersService>();
+
+            // For webhook demos
+            //serviceCollection.AddScoped<IService, WebhookService>();
+
+            // For GraphQL demos
+            serviceCollection.AddScoped<IService, GraphQLService>();
         }
     }
 }
