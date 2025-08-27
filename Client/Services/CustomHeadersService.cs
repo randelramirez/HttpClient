@@ -33,7 +33,10 @@ namespace Client.Services
             
             // Add custom headers
             request.Headers.Add("X-Custom-Header", "MyCustomValue");
-            request.Headers.Add("X-Request-Id", Guid.NewGuid().ToString());
+            request.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
+            request.Headers.Add("X-Client-ID", "HttpClientDemo");
+            request.Headers.Add("X-Request-Source", "CustomHeadersService");
+            request.Headers.Add("X-Correlation-ID", Guid.NewGuid().ToString()); // Add correlation ID for tracking
             request.Headers.Add("X-API-Version", "1.0");
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -73,7 +76,11 @@ namespace Client.Services
 
             // Set custom User-Agent
             httpClient.DefaultRequestHeaders.UserAgent.Clear();
-            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MyHttpClientApp/1.0 (Windows NT 10.0; Win64; x64)");
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("HttpClientDemo/1.0 (.NET 9.0)");
+            
+            // Add standard headers for consistency
+            httpClient.DefaultRequestHeaders.Add("X-API-Version", "1.0");
+            httpClient.DefaultRequestHeaders.Add("X-Correlation-ID", Guid.NewGuid().ToString());
 
             try
             {
@@ -112,6 +119,11 @@ namespace Client.Services
             };
 
             request.Headers.IfModifiedSince = DateTimeOffset.UtcNow.AddMinutes(-1);
+            
+            // Add standard headers for consistency
+            request.Headers.Add("X-API-Version", "1.0");
+            request.Headers.Add("X-Correlation-ID", Guid.NewGuid().ToString());
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             try
             {
@@ -146,7 +158,10 @@ namespace Client.Services
             var httpClient = httpClientFactory.CreateClient("ContactsClient");
 
             // First request to get ETag
-            var initialResponse = await httpClient.GetAsync("api/contacts");
+            var initialRequest = new HttpRequestMessage(HttpMethod.Get, "api/contacts");
+            initialRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            
+            var initialResponse = await httpClient.SendAsync(initialRequest);
             
             if (!initialResponse.IsSuccessStatusCode)
             {
@@ -163,6 +178,14 @@ namespace Client.Services
                 // Make conditional request with If-None-Match
                 var conditionalRequest = new HttpRequestMessage(HttpMethod.Get, "api/contacts");
                 conditionalRequest.Headers.IfNoneMatch.Add(etag);
+                
+                // Add standard headers for consistency
+                conditionalRequest.Headers.Add("X-API-Version", "1.0");
+                conditionalRequest.Headers.Add("X-Correlation-ID", Guid.NewGuid().ToString());
+                conditionalRequest.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
+                conditionalRequest.Headers.Add("X-Client-ID", "HttpClientDemo");
+                conditionalRequest.Headers.Add("X-Request-Source", "CustomHeadersService");
+                conditionalRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
                 try
                 {

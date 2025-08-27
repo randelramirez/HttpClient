@@ -67,12 +67,23 @@ namespace Client.Services
             // Set User-Agent following RFC guidelines
             request.Headers.UserAgent.ParseAdd("HttpClientDemo/1.0 (.NET 9.0)");
             
-            using var response = await httpClient.SendAsync(request);
-            
-            _logger.LogInformation("Request sent with proper headers. Status: {StatusCode}", response.StatusCode);
-            
-            // Log response headers for debugging
-            _logger.LogDebug("Response headers: {Headers}", response.Headers);
+            try
+            {
+                using var response = await httpClient.SendAsync(request);
+                
+                _logger.LogInformation("Request sent with proper headers. Status: {StatusCode}", response.StatusCode);
+                
+                // Log response headers for debugging
+                _logger.LogDebug("Response headers: {Headers}", response.Headers);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Network error occurred while making request with proper headers");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error occurred during header management demonstration");
+            }
         }
 
         /// <summary>
@@ -93,8 +104,19 @@ namespace Client.Services
             _logger.LogInformation("Using configuration - BaseUrl: {BaseUrl}, Timeout: {Timeout}s, MaxRetries: {MaxRetries}",
                 baseUrl, apiTimeout.TotalSeconds, maxRetries);
             
-            using var response = await httpClient.GetAsync("api/contacts");
-            _logger.LogInformation("Configuration-based request completed with status {StatusCode}", response.StatusCode);
+            try
+            {
+                using var response = await httpClient.GetAsync("api/contacts");
+                _logger.LogInformation("Configuration-based request completed with status {StatusCode}", response.StatusCode);
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Network error occurred during configuration-based client demonstration");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error occurred during configuration-based client demonstration");
+            }
         }
 
         /// <summary>

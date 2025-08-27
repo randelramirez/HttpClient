@@ -34,7 +34,7 @@ namespace Client.Services
             Console.WriteLine("Starting parallel requests...");
 
             // Create multiple tasks that run in parallel
-            var tasks = new List<Task<ContactViewModel>>();
+            var tasks = new List<Task<ContactViewModel?>>();
             
             for (int i = 0; i < 5; i++)
             {
@@ -50,7 +50,7 @@ namespace Client.Services
                 
                 foreach (var contact in results.Where(c => c != null))
                 {
-                    Console.WriteLine($"Retrieved: {contact.Name}");
+                    Console.WriteLine($"Retrieved: {contact!.Name}");
                 }
             }
             catch (Exception ex)
@@ -114,7 +114,7 @@ namespace Client.Services
             Console.WriteLine("Batch processing completed");
         }
 
-        private async Task<ContactViewModel> GetContactAsync(HttpClient httpClient, int requestId)
+        private async Task<ContactViewModel?> GetContactAsync(HttpClient httpClient, int requestId)
         {
             try
             {
@@ -151,15 +151,28 @@ namespace Client.Services
             {
                 Console.WriteLine($"Task {taskId} acquired semaphore");
                 
-                var response = await httpClient.GetAsync("api/contacts");
-                
-                if (response.IsSuccessStatusCode)
+                try
                 {
-                    Console.WriteLine($"Task {taskId} completed successfully");
+                    var response = await httpClient.GetAsync("api/contacts");
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"Task {taskId} completed successfully");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Task {taskId} failed: {response.StatusCode}");
+                    }
                 }
-                else
+                catch (HttpRequestException ex)
                 {
-                    Console.WriteLine($"Task {taskId} failed: {response.StatusCode}");
+                    Console.WriteLine($"Task {taskId} network error: {ex.Message}");
+                    // Don't re-throw, handle gracefully
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Task {taskId} unexpected error: {ex.Message}");
+                    // Don't re-throw, handle gracefully
                 }
 
                 // Simulate some processing time
