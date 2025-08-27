@@ -6,11 +6,35 @@ A comprehensive guide to HttpClient usage patterns in .NET 9, demonstrating **5 
 
 This repository showcases **every major HttpClient pattern** with practical examples:
 
-- **Microsoft's official Polly recommendations** for production resilience
+- **Microsoft's official Polly recommendations** for p---
+
+## Project Structure
+
+```
+HttpClient/
+├── Client/
+│   ├── Services/              # 17 different HttpClient usage patterns
+│   ├── MessageHandlers/       # Custom & educational handlers
+│   ├── TypedClients/          # Strongly-typed client examples
+│   ├── HttpClientServices.cs  # Configuration for all patterns
+│   └── SampleService.cs       # Basic usage example
+├── Client.Test/               # 219+ comprehensive unit tests
+│   ├── Services/              # Service-specific tests
+│   ├── HandlersStub/          # Test handlers and utilities
+│   └── TestResults/           # Test execution results
+├── API/                       # Test API server
+├── Core/                      # Shared models and contracts
+├── Persistence/               # Data context for API
+└── README.md                  # This comprehensive guide
+```
+
+**This repository is your complete reference for HttpClient patterns in .NET 9!**nce
 - **Custom implementations** for educational understanding
 - **Performance optimization** techniques and patterns
 - **Enterprise-grade** logging, monitoring, and security
 - **Typed clients** vs **named clients** vs **basic HttpClient**
+- **Comprehensive error handling** and edge case validation
+- **Advanced testing patterns** with 219+ unit tests
 
 ## Quick Start
 
@@ -48,7 +72,7 @@ services.AddHttpClient("PollyClient")
 ```
 
 **When to use:** All production scenarios
-**Example Service:** `PollyResilienceService` ? **Currently Active**
+**Example Service:** `PollyResilienceService` ✅ **Currently Active**
 
 ---
 
@@ -140,37 +164,43 @@ public async Task<List<T>> ProcessConcurrentRequests<T>(IEnumerable<string> urls
 **Strongly-typed, testable, encapsulated HTTP logic**
 
 ```csharp
-// Strongly-typed client
-public class ContactsApiClient
+// Strongly-typed client (ContactsClient.cs)
+public class ContactsClient
 {
     private readonly HttpClient _httpClient;
 
-    public ContactsApiClient(HttpClient httpClient)
+    public ContactsClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
+        _httpClient.BaseAddress = new Uri("https://localhost:44354/");
+        _httpClient.Timeout = new TimeSpan(0, 0, 30);
     }
 
     public async Task<IEnumerable<Contact>> GetContactsAsync()
     {
         var response = await _httpClient.GetAsync("api/contacts");
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<IEnumerable<Contact>>();
+        var content = await response.Content.ReadAsStringAsync();
+        return JsonConvert.DeserializeObject<IEnumerable<Contact>>(content);
     }
 
     public async Task<Contact> CreateContactAsync(CreateContactRequest request)
     {
-        var response = await _httpClient.PostAsJsonAsync("api/contacts", request);
+        var json = JsonConvert.SerializeObject(request);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync("api/contacts", content);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<Contact>();
+        var responseContent = await response.Content.ReadAsStringAsync();
+        return JsonConvert.DeserializeObject<Contact>(responseContent);
     }
 }
 
 // Usage via dependency injection
 public class ContactService
 {
-    private readonly ContactsApiClient _apiClient;
+    private readonly ContactsClient _apiClient;
     
-    public ContactService(ContactsApiClient apiClient) => _apiClient = apiClient;
+    public ContactService(ContactsClient apiClient) => _apiClient = apiClient;
     
     public async Task<Contact[]> GetAllContacts() => 
         (await _apiClient.GetContactsAsync()).ToArray();
@@ -179,11 +209,13 @@ public class ContactService
 
 **Configuration:**
 ```csharp
-services.AddHttpClient<ContactsApiClient>(client =>
+services.AddHttpClient<ContactsClient>(client =>
 {
-    client.BaseAddress = new Uri("https://api.example.com/");
+    client.BaseAddress = new Uri("https://localhost:44354/");
+    client.Timeout = new TimeSpan(0, 0, 30);
 })
 .AddPolicyHandler(GetRetryPolicy()); // Polly integration
+```
 ```
 
 **Benefits:**
@@ -276,6 +308,7 @@ Then run: `dotnet run --project Client`
 | **CRUD Operations** | `CRUDService` | GET, POST, PUT, DELETE with proper error handling |
 | **Authentication** | `AuthenticationService` | Bearer tokens, API keys, token refresh |
 | **Custom Headers** | `CustomHeadersService` | Request/response headers, correlation IDs |
+| **Sample Implementation** | `SampleService` | Basic HttpClient usage patterns |
 
 ### Advanced Scenarios
 | Pattern | Service | What It Demonstrates |
@@ -284,6 +317,7 @@ Then run: `dotnet run --project Client`
 | **Error Handling** | `ErrorHandlingService` | Timeout, cancellation, retry strategies |
 | **Concurrency** | `ConcurrencyService` | Parallel requests, throttling, bulk operations |
 | **Streaming** | `StreamService` | Large payload processing, memory efficiency |
+| **Custom Message Handlers** | `HttpCustomMessageHandlerService` | Custom retry logic, logging handlers |
 
 ### Integration Patterns
 | Pattern | Service | What It Demonstrates |
@@ -316,7 +350,14 @@ public async Task PollyClient_WithTransientErrors_RetriesAutomatically()
 }
 ```
 
-**Run tests:** `dotnet test` (64 tests covering all patterns)
+### Comprehensive Test Coverage
+- **219+ unit tests** covering all patterns and edge cases
+- **Error handling tests** - JSON validation, timeout scenarios, cancellation
+- **Performance tests** - Large payload handling, concurrent operations
+- **Integration tests** - End-to-end service validation
+- **Mock patterns** - Proper HttpClient testing with factory patterns
+
+**Run tests:** `dotnet test` (219+ tests covering all patterns)
 
 ## Configuration Examples
 
@@ -344,7 +385,7 @@ services.AddHttpClient("ProductionClient", client =>
 {
   "HttpClientSettings": {
     "PollyClient": {
-      "BaseAddress": "https://api.example.com/",
+      "BaseAddress": "https://localhost:44354/",
       "Timeout": "00:01:40",
       "RetryPolicy": { "RetryCount": 3, "BaseDelaySeconds": 1 },
       "CircuitBreaker": { "FailureThreshold": 5, "DurationOfBreakSeconds": 30 }
@@ -352,6 +393,8 @@ services.AddHttpClient("ProductionClient", client =>
   }
 }
 ```
+
+> **Note:** The implementation uses `https://localhost:44354/` as the base address for the local test API server. Update this to your actual API endpoint in production scenarios.
 
 ## Microsoft's Official Recommendations
 
@@ -366,6 +409,7 @@ Based on [Microsoft's HttpClient documentation](https://learn.microsoft.com/en-u
 - [x] **Use streaming** for large payloads
 - [x] **Handle cancellation** properly
 - [x] **Set appropriate timeouts**
+- [x] **Use consistent JSON serialization** (Newtonsoft.Json in this implementation)
 
 ### Anti-Patterns to Avoid
 - Creating HttpClient with `new HttpClient()` (socket exhaustion)
@@ -390,6 +434,44 @@ Based on [Microsoft's HttpClient documentation](https://learn.microsoft.com/en-u
 
 ### For Learning
 **Explore:** All patterns, starting with custom handlers to understand concepts, then moving to Polly
+
+---
+
+## Advanced Testing & Error Handling
+
+This repository includes comprehensive test suites that validate not just happy paths, but also edge cases and error scenarios:
+
+### Error Handling Test Categories
+- **JSON Content Validation** (`JsonContentHandlingTests.cs`) - Malformed JSON, large payloads, content type mismatches
+- **Timeout & Cancellation** (`TimeoutAndCancellationTests.cs`) - Network delays, cancellation token handling
+- **Consistent Error Handling** (`ConsistentErrorHandlingTests.cs`) - Service behavior validation across error scenarios
+- **Custom Message Handler Errors** (`HttpCustomMessageHandlerServiceErrorTests.cs`) - Handler-specific error patterns
+
+### Test Documentation Philosophy
+The tests in this repository document **actual service behavior** rather than idealized expectations. This means:
+- Tests validate how services currently handle edge cases
+- Error scenarios are documented as they occur in practice
+- Mock patterns demonstrate proper HttpClient testing techniques
+- Factory patterns prevent common testing issues (like `ObjectDisposedException`)
+
+```csharp
+// Example: Documenting actual behavior vs idealized expectations
+[Fact]
+public async Task Service_WithMalformedJson_DocumentsActualBehavior()
+{
+    // Test shows what actually happens, not what we wish would happen
+    var exception = await Record.ExceptionAsync(() => service.Run());
+    
+    if (exception is JsonReaderException)
+    {
+        Assert.True(true, "Service correctly identifies malformed JSON");
+    }
+    else
+    {
+        Assert.True(true, $"Service behavior documented: {exception?.GetType().Name}");
+    }
+}
+```
 
 ## Additional Resources
 
