@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Runtime.Serialization;
 
 namespace Client
 {
-    [Serializable]
     public class UnauthorizedApiAccessException : Exception
     {
         public UnauthorizedApiAccessException()
@@ -15,10 +13,6 @@ namespace Client
         }
 
         public UnauthorizedApiAccessException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
-
-        protected UnauthorizedApiAccessException(SerializationInfo info, StreamingContext context) : base(info, context)
         {
         }
     }

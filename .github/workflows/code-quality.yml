@@ -1,3 +1,5 @@
+File: .github\workflows\code-quality.yml
+````````
 name: Code Quality
 
 on:
@@ -41,3 +43,6 @@ jobs:
         
     - name: Restore dependencies
       run: dotnet restore
+        
+    - name: Check code formatting
+      run: dotnet format --verify-no-changes --verbosity diagnostic
