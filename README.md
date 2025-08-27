@@ -486,14 +486,20 @@ public async Task Service_WithMalformedJson_DocumentsActualBehavior()
 
 ```
 HttpClient/
-??? Client/
-?   ??? Services/              # 12 different HttpClient usage patterns
-?   ??? MessageHandlers/       # Custom & educational handlers
-?   ??? TypedClients/          # Strongly-typed client examples
-?   ??? HttpClientServices.cs  # Configuration for all patterns
-??? Client.Test/               # 64 comprehensive unit tests
-??? API/                       # Test API server
-??? README.md                  # This comprehensive guide
+├── Client/
+│   ├── Services/              # 17 different HttpClient usage patterns
+│   ├── MessageHandlers/       # Custom & educational handlers
+│   ├── TypedClients/          # Strongly-typed client examples
+│   ├── HttpClientServices.cs  # Configuration for all patterns
+│   └── SampleService.cs       # Basic usage example
+├── Client.Test/               # 219+ comprehensive unit tests
+│   ├── Services/              # Service-specific tests
+│   ├── HandlersStub/          # Test handlers and utilities
+│   └── TestResults/           # Test execution results
+├── API/                       # Test API server
+├── Core/                      # Shared models and contracts
+├── Persistence/               # Data context for API
+└── README.md                  # This comprehensive guide
 ```
 
 **This repository is your complete reference for HttpClient patterns in .NET 9!**
