@@ -1,262 +1,327 @@
-# HttpClient .NET 9 Examples - Complete Guide
+# HttpClient .NET 9 Patterns & Best Practices
 
-[![CI](https://github.com/randelramirez/HttpClient/actions/workflows/ci.yml/badge.svg)](https://github.com/randelramirez/HttpClient/actions/workflows/ci.yml)
-[![Code Quality](https://github.com/randelramirez/HttpClient/actions/workflows/code-quality.yml/badge.svg)](https://github.com/randelramirez/HttpClient/actions/workflows/code-quality.yml)
+A comprehensive guide to HttpClient usage patterns in .NET 9, demonstrating **5 different approaches** from basic implementations to Microsoft's recommended production patterns with Polly resilience.
 
-A comprehensive collection of HttpClient usage examples and patterns in .NET 9, demonstrating various scenarios from basic CRUD operations to advanced patterns like authentication, file uploads, concurrent requests, and more. This repository implements **Microsoft's official HttpClient best practices** including Polly for resilience patterns.
+## ?? What You'll Learn
 
-## ?? Overview
+This repository showcases **every major HttpClient pattern** with practical examples:
 
-This project showcases every major HttpClient pattern recommended by Microsoft, from basic usage to enterprise-grade implementations with resilience, performance optimization, and production-ready monitoring.
-
-## ?? Table of Contents
-
-- [?? Quick Start](#-quick-start)
-- [??? Project Structure](#?-project-structure)
-- [?? HttpClient Approaches & Patterns](#-httpclient-approaches--patterns)
-- [?? Microsoft's Recommended Patterns](#-microsofts-recommended-patterns)
-- [?? Service Examples](#-service-examples)
-- [?? Testing](#-testing)
-- [?? Configuration](#?-configuration)
-- [?? CI/CD](#-cicd)
-- [?? Performance Tips](#-performance-tips)
+- **Microsoft's official Polly recommendations** for production resilience
+- **Custom implementations** for educational understanding
+- **Performance optimization** techniques and patterns
+- **Enterprise-grade** logging, monitoring, and security
+- **Typed clients** vs **named clients** vs **basic HttpClient**
 
 ## ?? Quick Start
 
-### Prerequisites
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-- Visual Studio 2022 or VS Code
-
-### Running the Examples
 ```bash
-# Clone the repository
 git clone https://github.com/randelramirez/HttpClient.git
 cd HttpClient
-
-# Restore dependencies
 dotnet restore
-
-# Run the demo (currently: Polly Resilience Patterns)
-dotnet run --project Client
-
-# Run tests
-dotnet test
-
-# Run the API server (for testing)
-dotnet run --project API
+dotnet run --project Client  # Runs Microsoft's recommended Polly patterns
 ```
 
-## ??? Project Structure
+## ?? HttpClient Patterns & Approaches
 
-```
-HttpClient/
-??? .github/workflows/         # CI/CD pipelines
-??? API/                       # Web API server for testing
-??? Client/                    # HttpClient examples and services
-?   ??? Services/             # Various HttpClient usage scenarios
-?   ??? MessageHandlers/      # Custom and educational handlers
-?   ??? TypedClients/         # Strongly-typed client examples
-?   ??? appsettings.json      # Configuration examples
-??? Client.Test/              # Comprehensive unit tests (52+ tests)
-??? Core/                     # Shared models and DTOs
-??? Persistence/             # Data access layer
-```
+### 1. ?? **Microsoft's Recommended: Polly + HttpClientFactory**
 
-## ?? HttpClient Approaches & Patterns
-
-This repository demonstrates **5 different approaches** to using HttpClient, following Microsoft's recommendations:
-
-### 1. ?? **Polly with HttpClientFactory (RECOMMENDED)**
-
-**Microsoft's Official Recommendation** - Use Polly for all resilience patterns.
+**? Use This in Production** - Microsoft's official resilience approach.
 
 ```csharp
-// Configuration (in HttpClientServices.cs)
-services.AddHttpClient("PollyClient")
-    .AddPolicyHandler(GetRetryPolicy())        // Exponential backoff with jitter
-    .AddPolicyHandler(GetCircuitBreakerPolicy()) // Fault tolerance
-    .AddPolicyHandler(GetTimeoutPolicy());     // Timeout protection
-
-// Usage (in any service)
+// Zero configuration needed - policies applied automatically
 public async Task<List<Contact>> GetContacts()
 {
     var httpClient = _httpClientFactory.CreateClient("PollyClient");
-    var response = await httpClient.GetAsync("api/contacts"); // Polly policies applied automatically!
-    // ... handle response
+    var response = await httpClient.GetAsync("api/contacts");
+    // Retry, Circuit Breaker, Timeout policies applied transparently!
+    return JsonSerializer.Deserialize<List<Contact>>(await response.Content.ReadAsStringAsync());
 }
 ```
 
-**? Benefits:**
-- Zero service code changes - policies applied transparently
-- Battle-tested by thousands of applications
-- Microsoft supported and documented
-- Comprehensive feature set (retry, circuit breaker, timeout, bulkhead, rate limiting)
-
-**?? Service:** `PollyResilienceService` - **Currently Active**
-
----
-
-### 2. ??? **Production-Ready HttpClientFactory**
-
-**Enterprise-grade configuration** with logging, monitoring, and Polly integration.
-
+**How it works:**
 ```csharp
-// Configuration
-services.AddHttpClient("ProductionClient")
-    .AddHttpMessageHandler<LoggingDelegatingHandler>() // Structured logging
-    .AddPolicyHandler(GetRetryPolicy())                // Polly resilience
-    .AddPolicyHandler(GetCircuitBreakerPolicy())
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler()
-    {
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-        UseCookies = false,
-        MaxConnectionsPerServer = 10
-    });
-
-// Usage
-var httpClient = _httpClientFactory.CreateClient("ProductionClient");
-// Automatic: Logging + Retry + Circuit Breaker + Performance optimization
+// Configuration (HttpClientServices.cs)
+services.AddHttpClient("PollyClient")
+    .AddPolicyHandler(GetRetryPolicy())        // Exponential backoff + jitter
+    .AddPolicyHandler(GetCircuitBreakerPolicy()) // Prevents cascading failures
+    .AddPolicyHandler(GetTimeoutPolicy());     // Request timeout protection
 ```
 
-**? Benefits:**
-- Comprehensive logging with correlation IDs
-- Performance optimizations
-- Security headers and authentication
-- Health check patterns
-- Configuration-driven setup
-
-**?? Service:** `ProductionReadyHttpClientService`
+**?? When to use:** All production scenarios
+**?? Example Service:** `PollyResilienceService` ? **Currently Active**
 
 ---
 
-### 3. ? **Performance-Optimized HttpClientFactory**
+### 2. ??? **Enterprise Production Pattern**
 
-**High-throughput scenarios** with connection pooling and streaming.
-
-```csharp
-// Configuration for high-performance scenarios
-services.AddHttpClient("PerformanceClient")
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler()
-    {
-        MaxConnectionsPerServer = 50,    // Higher connection limit
-        UseCookies = false,             // Disable if not needed
-        UseProxy = false,               // Disable if not required
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-    });
-
-// Usage with streaming for large payloads
-using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-using var stream = await response.Content.ReadAsStreamAsync();
-// Process stream directly without loading into memory
-```
-
-**? Benefits:**
-- Optimized connection pooling
-- Streaming for large payloads
-- Compression handling
-- Concurrent request throttling
-
-**?? Service:** `PerformanceOptimizationService`
-
----
-
-### 4. ?? **Typed Clients**
-
-**Strongly-typed service clients** following Microsoft's typed client pattern.
+**Production + Logging + Monitoring + Security**
 
 ```csharp
-// Typed client implementation
-public class ContactsClient
+// Enterprise-grade with comprehensive observability
+public async Task<ApiResponse<T>> CallSecureApi<T>(string endpoint)
 {
-    private readonly HttpClient _client;
-
-    public ContactsClient(HttpClient client)
-    {
-        _client = client;
-        _client.BaseAddress = new Uri("https://localhost:44354/");
-    }
-
-    public async Task<IEnumerable<ContactViewModel>> GetContacts()
-    {
-        var response = await _client.GetAsync("api/contacts");
-        // ... handle response
-    }
-}
-
-// Configuration
-services.AddHttpClient<ContactsClient>()
-    .AddPolicyHandler(GetRetryPolicy());
-
-// Usage (via dependency injection)
-public class MyService
-{
-    private readonly ContactsClient _contactsClient;
+    var httpClient = _httpClientFactory.CreateClient("ProductionClient");
     
-    public MyService(ContactsClient contactsClient)
+    var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+    request.Headers.Add("X-Correlation-ID", Guid.NewGuid().ToString());
+    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await GetTokenAsync());
+    
+    var response = await httpClient.SendAsync(request);
+    // Automatic: Structured logging + Retry + Circuit breaker + Performance optimization
+    
+    return await ProcessResponse<T>(response);
+}
+```
+
+**Features included:**
+- ? **Structured logging** with correlation IDs
+- ? **Security headers** and authentication patterns
+- ? **Polly resilience** (retry + circuit breaker)
+- ? **Performance optimization** (compression, connection pooling)
+- ? **Health monitoring** integration
+
+**?? When to use:** Enterprise applications, microservices
+**?? Example Service:** `ProductionReadyHttpClientService`
+
+---
+
+### 3. ? **High-Performance Pattern**
+
+**Optimized for throughput and large payloads**
+
+```csharp
+// Streaming for memory efficiency
+public async Task<Stream> DownloadLargeFile(string url)
+{
+    var httpClient = _httpClientFactory.CreateClient("PerformanceClient");
+    
+    // Stream response without loading into memory
+    var response = await httpClient.SendAsync(
+        new HttpRequestMessage(HttpMethod.Get, url), 
+        HttpCompletionOption.ResponseHeadersRead);
+    
+    return await response.Content.ReadAsStreamAsync();
+}
+
+// Concurrent requests with throttling
+public async Task<List<T>> ProcessConcurrentRequests<T>(IEnumerable<string> urls)
+{
+    var semaphore = new SemaphoreSlim(10, 10); // Max 10 concurrent
+    var tasks = urls.Select(async url =>
     {
-        _contactsClient = contactsClient;
+        await semaphore.WaitAsync();
+        try
+        {
+            return await httpClient.GetFromJsonAsync<T>(url);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    });
+    
+    return (await Task.WhenAll(tasks)).ToList();
+}
+```
+
+**Performance features:**
+- ? **Connection pooling** (50 connections per server)
+- ? **Streaming** for large payloads
+- ? **Compression** handling (GZip/Deflate)
+- ? **Concurrent throttling** to prevent server overload
+
+**?? When to use:** High-throughput scenarios, file processing, bulk operations
+**?? Example Service:** `PerformanceOptimizationService`
+
+---
+
+### 4. ?? **Typed Client Pattern**
+
+**Strongly-typed, testable, encapsulated HTTP logic**
+
+```csharp
+// Strongly-typed client
+public class ContactsApiClient
+{
+    private readonly HttpClient _httpClient;
+
+    public ContactsApiClient(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
+    public async Task<IEnumerable<Contact>> GetContactsAsync()
+    {
+        var response = await _httpClient.GetAsync("api/contacts");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<IEnumerable<Contact>>();
+    }
+
+    public async Task<Contact> CreateContactAsync(CreateContactRequest request)
+    {
+        var response = await _httpClient.PostAsJsonAsync("api/contacts", request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<Contact>();
+    }
+}
+
+// Usage via dependency injection
+public class ContactService
+{
+    private readonly ContactsApiClient _apiClient;
+    
+    public ContactService(ContactsApiClient apiClient) => _apiClient = apiClient;
+    
+    public async Task<Contact[]> GetAllContacts() => 
+        (await _apiClient.GetContactsAsync()).ToArray();
+}
+```
+
+**Configuration:**
+```csharp
+services.AddHttpClient<ContactsApiClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.example.com/");
+})
+.AddPolicyHandler(GetRetryPolicy()); // Polly integration
+```
+
+**Benefits:**
+- ? **Type safety** and IntelliSense support
+- ? **Easy to mock** for unit testing
+- ? **Encapsulated logic** - HTTP details hidden from business logic
+- ? **Dependency injection** ready
+
+**?? When to use:** Clean architecture, testable code, service boundaries
+**?? Example Service:** `HttpClientFactoryManagementService`
+
+---
+
+### 5. ?? **Educational: Custom Resilience Handlers**
+
+**?? Learning Only - Use Polly in Production**
+
+```csharp
+// Custom retry implementation (for understanding concepts)
+[Obsolete("Use Polly instead - this is educational only")]
+public class RetryPolicyDelegatingHandler : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        const int maxRetries = 3;
+        
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                var response = await base.SendAsync(request, cancellationToken);
+                if (response.IsSuccessStatusCode) return response;
+                
+                if (attempt == maxRetries - 1) return response;
+                
+                // Simple delay - Polly does exponential backoff + jitter
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)));
+            }
+            catch (HttpRequestException) when (attempt < maxRetries - 1)
+            {
+                // Continue to next attempt
+            }
+        }
+        
+        throw new HttpRequestException("All retry attempts failed");
     }
 }
 ```
 
-**? Benefits:**
-- Strongly-typed interface
-- Encapsulated HTTP logic
-- Easy to mock for testing
-- Dependency injection integration
+**?? Educational value:**
+- Understand **how retry patterns work** internally
+- Learn **circuit breaker concepts** and state management
+- See **why Polly is better** (jitter, sophisticated policies, testing)
 
-**?? Service:** `HttpClientFactoryManagementService`
+**?? Don't use in production:** Custom implementations lack battle-testing, edge case handling, and advanced features.
+
+**?? Example Service:** `ResiliencePatternService`
 
 ---
 
-### 5. ?? **Educational Custom Handlers (LEARNING ONLY)**
+## ?? Switching Between Patterns
 
-**?? NOT FOR PRODUCTION** - Custom implementations for understanding concepts.
+In `Client/Program.cs`, uncomment the pattern you want to explore:
 
 ```csharp
-// Educational custom circuit breaker (DON'T USE IN PRODUCTION)
-[Obsolete("Use Polly's CircuitBreakerAsync policy instead. This is for educational purposes only.")]
-public class CircuitBreakerDelegatingHandler : DelegatingHandler
-{
-    // Custom implementation to understand circuit breaker concepts
-    // Use Polly in production!
-}
+// ?? Microsoft's Recommended (Currently Active)
+serviceCollection.AddScoped<IService, PollyResilienceService>();
 
-// Configuration (educational only)
-services.AddHttpClient("EducationalClient")
-    .AddHttpMessageHandler(() => new RetryPolicyDelegatingHandler(2))
-    .AddHttpMessageHandler(() => new CircuitBreakerDelegatingHandler(5));
+// ??? Enterprise Production Pattern
+//serviceCollection.AddScoped<IService, ProductionReadyHttpClientService>();
+
+// ? High-Performance Pattern
+//serviceCollection.AddScoped<IService, PerformanceOptimizationService>();
+
+// ?? Typed Client Pattern
+//serviceCollection.AddScoped<IService, HttpClientFactoryManagementService>();
+
+// ?? Educational Custom Handlers
+//serviceCollection.AddScoped<IService, ResiliencePatternService>();
 ```
 
-**?? Learning Value:**
-- Understand how circuit breakers work internally
-- Learn retry pattern concepts
-- See what Polly does behind the scenes
+Then run: `dotnet run --project Client`
 
-**?? Service:** `ResiliencePatternService`
+## ?? Complete Pattern Library
 
----
+### Basic Operations
+| Pattern | Service | What It Demonstrates |
+|---------|---------|---------------------|
+| **CRUD Operations** | `CRUDService` | GET, POST, PUT, DELETE with proper error handling |
+| **Authentication** | `AuthenticationService` | Bearer tokens, API keys, token refresh |
+| **Custom Headers** | `CustomHeadersService` | Request/response headers, correlation IDs |
 
-## ?? Microsoft's Recommended Patterns
+### Advanced Scenarios
+| Pattern | Service | What It Demonstrates |
+|---------|---------|---------------------|
+| **File Upload** | `FileUploadService` | Multipart uploads, progress tracking, streaming |
+| **Error Handling** | `ErrorHandlingService` | Timeout, cancellation, retry strategies |
+| **Concurrency** | `ConcurrencyService` | Parallel requests, throttling, bulk operations |
+| **Streaming** | `StreamService` | Large payload processing, memory efficiency |
 
-Based on [Microsoft's official documentation](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/implement-http-call-retries-exponential-backoff-polly):
+### Integration Patterns
+| Pattern | Service | What It Demonstrates |
+|---------|---------|---------------------|
+| **GraphQL** | `GraphQLService` | Query execution, mutations, subscriptions |
+| **Webhooks** | `WebhookService` | Signed webhooks, batch processing |
 
-### ? **Production Checklist**
-- [x] **Use HttpClientFactory** instead of `new HttpClient()`
-- [x] **Use Polly for resilience** (retry, circuit breaker, timeout)
-- [x] **Configure appropriate timeouts**
-- [x] **Enable compression** for bandwidth optimization
-- [x] **Implement structured logging** with correlation IDs
-- [x] **Use streaming** for large payloads
-- [x] **Configure connection pooling**
-- [x] **Handle timeout and cancellation** properly
-- [x] **Use configuration-based setup**
-- [x] **Implement health check patterns**
-- [x] **Follow semantic versioning** for User-Agent headers
+## ?? Testing Patterns
 
-### ?? **Recommended Configuration**
+Each approach includes comprehensive tests showing how to mock and test HttpClient usage:
+
 ```csharp
-// Microsoft's recommended production setup
+[Fact]
+public async Task PollyClient_WithTransientErrors_RetriesAutomatically()
+{
+    // Arrange: Setup sequence of failures then success
+    _mockHandler.SetupSequence<Task<HttpResponseMessage>>("SendAsync")
+        .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError))
+        .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))
+        .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) 
+        { 
+            Content = new StringContent("[]") 
+        });
+
+    // Act: Call service
+    await _pollyService.Run();
+
+    // Assert: Verify 3 attempts were made
+    _mockHandler.Protected().Verify("SendAsync", Times.Exactly(3));
+}
+```
+
+**Run tests:** `dotnet test` (64 tests covering all patterns)
+
+## ?? Configuration Examples
+
+### Microsoft's Recommended Setup
+```csharp
 services.AddHttpClient("ProductionClient", client =>
 {
     client.BaseAddress = new Uri("https://api.example.com/");
@@ -271,282 +336,82 @@ services.AddHttpClient("ProductionClient", client =>
         TimeSpan.FromMilliseconds(Random.Shared.Next(0, 100))))
 .AddPolicyHandler(HttpPolicyExtensions
     .HandleTransientHttpError()
-    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)))
-.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler()
-{
-    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-    UseCookies = false,
-    MaxConnectionsPerServer = 10
-});
+    .CircuitBreakerAsync(5, TimeSpan.FromSeconds(30)));
 ```
 
-## ?? Service Examples
-
-### Core HttpClient Services
-
-| Service | Pattern | Status | Description |
-|---------|---------|--------|-------------|
-| **PollyResilienceService** | ?? Polly + HttpClientFactory | **Active** | Microsoft's official resilience patterns |
-| **ProductionReadyHttpClientService** | ??? Enterprise | Ready | Logging + Security + Monitoring |
-| **PerformanceOptimizationService** | ? Performance | Ready | High-throughput optimization |
-| **AuthenticationService** | ?? Security | Ready | Bearer/Basic auth + token refresh |
-| **FileUploadService** | ?? Upload | Ready | Multipart, stream, progress tracking |
-| **CRUDService** | ?? Basic | Ready | Complete CRUD operations |
-| **ConcurrencyService** | ? Concurrent | Ready | Parallel requests + throttling |
-| **ErrorHandlingService** | ?? Error Handling | Ready | Timeout, cancellation, fault tolerance |
-| **StreamService** | ?? Streaming | Ready | Large payload processing |
-| **WebhookService** | ?? Webhooks | Ready | Signed webhooks + batch processing |
-| **GraphQLService** | ?? GraphQL | Ready | Query execution + mutations |
-| **CustomHeadersService** | ??? Headers | Ready | Custom headers + cache control |
-
-### Switching Between Examples
-
-In `Client/Program.cs`, uncomment the desired service:
-
-```csharp
-#region Microsoft Recommended (Polly)
-// ?? RECOMMENDED: Microsoft's official Polly resilience patterns
-serviceCollection.AddScoped<IService, PollyResilienceService>(); // Currently active
-
-// ??? Production-ready patterns (Headers, Security, Monitoring)
-//serviceCollection.AddScoped<IService, ProductionReadyHttpClientService>();
-
-// ? Performance optimization patterns
-//serviceCollection.AddScoped<IService, PerformanceOptimizationService>();
-#endregion
-
-#region Advanced Patterns
-// ?? Authentication patterns (Bearer, Basic, Refresh tokens)
-//serviceCollection.AddScoped<IService, AuthenticationService>();
-
-// ?? File upload scenarios (Multipart, Stream, Progress)
-//serviceCollection.AddScoped<IService, FileUploadService>();
-#endregion
-```
-
-## ?? Testing
-
-### Comprehensive Test Suite
-- **52+ unit tests** with xUnit v3
-- **100% pattern coverage** including edge cases
-- **Moq integration** for HTTP mocking
-- **Async testing patterns**
-
-### Test Categories
-```bash
-# Run all tests
-dotnet test
-
-# Run specific test category
-dotnet test --filter "Category=HttpClient"
-dotnet test --filter "Category=Polly"
-dotnet test --filter "Category=Authentication"
-```
-
-### Example Test Pattern
-```csharp
-[Fact]
-public async Task PollyClient_WithTransientErrors_RetriesAutomatically()
-{
-    // Arrange
-    _mockMessageHandler
-        .Protected()
-        .SetupSequence<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
-        .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError))
-        .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError))
-        .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("[]") });
-
-    // Act
-    var result = await _pollyService.Run();
-
-    // Assert
-    // Verify Polly retried 3 times and eventually succeeded
-    _mockMessageHandler.Protected().Verify("SendAsync", Times.Exactly(3), ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>());
-}
-```
-
-## ?? Configuration
-
-### appsettings.json Examples
+### Configuration-Driven Setup
 ```json
 {
   "HttpClientSettings": {
     "PollyClient": {
       "BaseAddress": "https://api.example.com/",
       "Timeout": "00:01:40",
-      "RetryPolicy": {
-        "RetryCount": 3,
-        "BaseDelaySeconds": 1
-      },
-      "CircuitBreaker": {
-        "FailureThreshold": 5,
-        "DurationOfBreakSeconds": 30
-      }
-    },
-    "ProductionClient": {
-      "BaseAddress": "https://api.example.com/",
-      "EnableLogging": true,
-      "EnablePolly": true,
-      "MaxConnectionsPerServer": 10
+      "RetryPolicy": { "RetryCount": 3, "BaseDelaySeconds": 1 },
+      "CircuitBreaker": { "FailureThreshold": 5, "DurationOfBreakSeconds": 30 }
     }
   }
 }
 ```
 
-### Environment-Specific Configuration
-```csharp
-// Different configurations for different environments
-services.AddHttpClient("ApiClient", (serviceProvider, client) =>
-{
-    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-    var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
-    
-    client.BaseAddress = new Uri(configuration["ApiSettings:BaseUrl"]);
-    client.Timeout = TimeSpan.FromSeconds(environment.IsProduction() ? 60 : 30);
-});
-```
+## ?? Microsoft's Official Recommendations
 
-## ?? CI/CD
+Based on [Microsoft's HttpClient documentation](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/implement-http-call-retries-exponential-backoff-polly):
 
-### GitHub Actions Pipeline
-- ? **Multi-OS builds** (Ubuntu, Windows, macOS)
-- ? **All tests pass** (52+/52+)
-- ? **Code quality checks** (formatting, analysis)
-- ? **Security scanning** (vulnerability detection)
-- ? **Code coverage** collection and reporting
+### ? Production Checklist
+- [x] **Use HttpClientFactory** (not `new HttpClient()`)
+- [x] **Use Polly for resilience** (retry, circuit breaker, timeout)
+- [x] **Enable compression** (GZip/Deflate)
+- [x] **Implement structured logging** with correlation IDs
+- [x] **Configure connection pooling** appropriately
+- [x] **Use streaming** for large payloads
+- [x] **Handle cancellation** properly
+- [x] **Set appropriate timeouts**
 
-### Quality Gates
-```yaml
-# .github/workflows/ci.yml
-- name: Build and Test
-  run: |
-    dotnet restore
-    dotnet build --no-restore --configuration Release
-    dotnet test --no-build --configuration Release
-```
+### ? Anti-Patterns to Avoid
+- ? Creating HttpClient with `new HttpClient()` (socket exhaustion)
+- ? Not disposing HttpResponseMessage
+- ? Ignoring cancellation tokens
+- ? Custom retry logic without jitter (thundering herd)
+- ? Blocking async calls with `.Result` or `.Wait()`
 
-## ?? Performance Tips
+## ?? Which Pattern Should I Use?
 
-### 1. **Connection Management**
-```csharp
-.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler()
-{
-    MaxConnectionsPerServer = 50,          // Higher for performance
-    UseCookies = false,                    // Disable if not needed
-    UseProxy = false,                      // Disable if not required
-    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
-});
-```
+### For New Applications
+**Start with:** `PollyResilienceService` (Microsoft's recommended Polly approach)
 
-### 2. **Streaming for Large Payloads**
-```csharp
-// Memory-efficient processing
-using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-using var stream = await response.Content.ReadAsStreamAsync();
-// Process stream directly
-```
+### For Enterprise Applications
+**Use:** `ProductionReadyHttpClientService` (Polly + Logging + Security + Monitoring)
 
-### 3. **Concurrent Request Throttling**
-```csharp
-var semaphore = new SemaphoreSlim(maxConcurrentRequests, maxConcurrentRequests);
-await semaphore.WaitAsync();
-try
-{
-    // Make HTTP request
-}
-finally
-{
-    semaphore.Release();
-}
-```
+### For High-Performance Scenarios
+**Use:** `PerformanceOptimizationService` (Connection pooling + Streaming + Concurrency)
 
-### 4. **Polly Policies with Jitter**
-```csharp
-// Prevents thundering herd problem
-.WaitAndRetryAsync(3, retryAttempt => 
-    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)) + 
-    TimeSpan.FromMilliseconds(Random.Shared.Next(0, 100)))
-```
+### For Clean Architecture
+**Use:** Typed clients pattern (`HttpClientFactoryManagementService`)
 
-## ?? Security Best Practices
-
-### Authentication Patterns
-```csharp
-// Bearer Token
-request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-// API Key
-request.Headers.Add("X-API-Key", apiKey);
-
-// Custom Authentication
-request.Headers.Authorization = new AuthenticationHeaderValue("CustomScheme", customToken);
-```
-
-### Security Headers
-```csharp
-request.Headers.Add("X-Requested-With", "HttpClient");
-request.Headers.Add("X-Correlation-ID", correlationId);
-request.Headers.Add("X-Client-Version", "1.0.0");
-```
-
-## ?? Monitoring and Observability
-
-### Correlation ID Propagation
-```csharp
-var correlationId = Activity.Current?.Id ?? Guid.NewGuid().ToString();
-request.Headers.Add("X-Correlation-ID", correlationId);
-
-// OpenTelemetry integration
-if (Activity.Current != null)
-{
-    request.Headers.Add("traceparent", Activity.Current.Id);
-    request.Headers.Add("tracestate", Activity.Current.TraceStateString);
-}
-```
-
-### Structured Logging
-```csharp
-_logger.LogInformation("HTTP {Method} {Uri} [{RequestId}] completed with {StatusCode} in {ElapsedMs}ms",
-    request.Method, request.RequestUri, requestId, (int)response.StatusCode, stopwatch.ElapsedMilliseconds);
-```
-
-## ?? Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-**CI/CD Process**: The GitHub Actions pipeline will automatically:
-- Build your changes across Ubuntu, Windows, and macOS
-- Run all 52+ unit tests
-- Verify code formatting and quality
-- Check for security vulnerabilities
-- Generate code coverage reports
-
-## ?? License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## ?? Summary
-
-This repository provides a **complete reference implementation** of Microsoft's HttpClient best practices for .NET 9:
-
-- **?? Production-Ready**: Polly integration following Microsoft's official recommendations
-- **?? Educational**: Custom implementations for learning purposes  
-- **?? Comprehensive Testing**: 52+ unit tests covering all patterns
-- **?? Complete Documentation**: Every pattern explained with examples
-- **?? CI/CD Ready**: Automated testing and quality gates
-- **? Performance Optimized**: High-throughput and streaming examples
-- **??? Enterprise-Grade**: Security, logging, and monitoring patterns
-
-**Start with `PollyResilienceService`** for Microsoft's recommended approach, then explore other patterns based on your needs! ??
+### For Learning
+**Explore:** All patterns, starting with custom handlers to understand concepts, then moving to Polly
 
 ## ?? Additional Resources
 
-- [Microsoft HttpClient Guidelines](https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/use-httpclientfactory-to-implement-resilient-http-requests)
-- [HttpClientFactory Documentation](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests)
-- [Polly Resilience Library](https://github.com/App-vNext/Polly)
-- [Microsoft Cloud Design Patterns](https://docs.microsoft.com/en-us/azure/architecture/patterns/)
-- [.NET Performance Best Practices](https://docs.microsoft.com/en-us/dotnet/core/deploying/performance)
+- [Microsoft: HttpClient Guidelines](https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/use-httpclientfactory-to-implement-resilient-http-requests)
+- [Microsoft: Polly Integration](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/implement-http-call-retries-exponential-backoff-polly)
+- [Polly Documentation](https://github.com/App-vNext/Polly)
+- [Microsoft: Performance Best Practices](https://docs.microsoft.com/en-us/dotnet/core/deploying/performance)
+
+---
+
+## ??? Project Structure
+
+```
+HttpClient/
+??? Client/
+?   ??? Services/              # 12 different HttpClient usage patterns
+?   ??? MessageHandlers/       # Custom & educational handlers
+?   ??? TypedClients/          # Strongly-typed client examples
+?   ??? HttpClientServices.cs  # Configuration for all patterns
+??? Client.Test/               # 64 comprehensive unit tests
+??? API/                       # Test API server
+??? README.md                  # This comprehensive guide
+```
+
+**This repository is your complete reference for HttpClient patterns in .NET 9!** ??
