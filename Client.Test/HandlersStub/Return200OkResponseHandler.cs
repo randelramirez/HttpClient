@@ -1,8 +1,9 @@
 ﻿using Core.ViewModels;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Net.Http.Json;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -30,9 +31,11 @@ namespace Client.Test.HandlersStub
                 }
             ];
 
+            // Use Newtonsoft.Json to serialize the data to match what SampleService expects
+            var json = JsonConvert.SerializeObject(data);
             var httpResponseMessage = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
-                Content = JsonContent.Create(data)
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
             
             return Task.FromResult(httpResponseMessage);

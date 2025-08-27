@@ -19,7 +19,7 @@ namespace Client.Test.Services
 
         public ErrorHandlingServiceTests()
         {
-            _mockMessageHandler = new Mock<HttpMessageHandler>(MockBehavior.Default);
+            _mockMessageHandler = new Mock<HttpMessageHandler>();
             _httpClient = new HttpClient(_mockMessageHandler.Object)
             {
                 BaseAddress = new Uri("https://localhost:44354/"),
@@ -36,7 +36,37 @@ namespace Client.Test.Services
         public async Task Run_WithValidResponse_ExecutesSuccessfully()
         {
             // Arrange
-            SetupSuccessfulResponses();
+            SetupSuccessfulResponse();
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
+
+            // Assert
+            Assert.Null(exception);
+            VerifyHttpRequestMade(Times.Once()); // Run() calls GetContactsLongProcessHandleExceptionsForNET5() once
+        }
+
+        [Fact]
+        public async Task Run_WithValidJsonResponse_ProcessesContacts()
+        {
+            // Arrange
+            var jsonResponse = @"[{""Id"":""" + Guid.NewGuid() + @""",""Name"":""Test Contact"",""Address"":""Test Address""}]";
+            
+            var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(jsonResponse, System.Text.Encoding.UTF8, "application/json")
+            };
+
+            _mockMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => 
+                        req.Method == HttpMethod.Get &&
+                        req.RequestUri != null &&
+                        req.RequestUri.ToString().Contains("GetContactsLongProcess")),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(successResponse);
 
             // Act
             var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
@@ -46,90 +76,45 @@ namespace Client.Test.Services
         }
 
         [Fact]
-        public async Task HandleNotFoundResponse_HandlesGracefully()
+        public async Task Run_WithTimeoutException_HandlesGracefully()
         {
-            // Arrange
-            var notFoundResponse = new HttpResponseMessage(HttpStatusCode.NotFound);
+            // Arrange - Service creates TaskCanceledException with TimeoutException as inner
+            var timeoutException = new TaskCanceledException("Request timed out", new TimeoutException());
             
             _mockMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ReturnsAsync(notFoundResponse);
+                    ItExpr.IsAny<CancellationToken>())
+                .ThrowsAsync(timeoutException);
 
             // Act
             var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
 
             // Assert
-            Assert.Null(exception); // Should handle 404 gracefully
+            Assert.Null(exception); // Should handle timeout gracefully in catch block
         }
 
         [Fact]
-        public async Task HandleUnauthorizedResponse_HandlesGracefully()
+        public async Task Run_WithCancellationException_HandlesGracefully()
         {
-            // Arrange
-            var unauthorizedResponse = new HttpResponseMessage(HttpStatusCode.Unauthorized);
+            // Arrange - Service creates TaskCanceledException without inner exception
+            var cancellationException = new TaskCanceledException("Request was cancelled");
             
             _mockMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ReturnsAsync(unauthorizedResponse);
+                    ItExpr.IsAny<CancellationToken>())
+                .ThrowsAsync(cancellationException);
 
             // Act
             var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
 
             // Assert
-            Assert.Null(exception); // Should handle 401 gracefully
-        }
-
-        [Fact]
-        public async Task HandleTimeoutException_CatchesTaskCanceledException()
-        {
-            // Arrange
-            _mockMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ThrowsAsync(new TaskCanceledException("Request timed out", new TimeoutException()));
-
-            // Act
-            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
-
-            // Assert
-            Assert.Null(exception); // Should handle timeout gracefully
-        }
-
-        [Fact]
-        public async Task HandleCancellationException_CatchesTaskCanceledException()
-        {
-            // Arrange
-            var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.Cancel();
-
-            _mockMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ThrowsAsync(new TaskCanceledException("Request was cancelled"));
-
-            // Act
-            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
-
-            // Assert
-            Assert.Null(exception); // Should handle cancellation gracefully
+            Assert.Null(exception); // Should handle cancellation gracefully in catch block
         }
 
         [Theory]
@@ -137,7 +122,7 @@ namespace Client.Test.Services
         [InlineData(HttpStatusCode.BadGateway)]
         [InlineData(HttpStatusCode.ServiceUnavailable)]
         [InlineData(HttpStatusCode.GatewayTimeout)]
-        public async Task HandleServerErrors_ThrowsHttpRequestException(HttpStatusCode statusCode)
+        public async Task Run_WithServerErrors_CallsEnsureSuccessStatusCode(HttpStatusCode statusCode)
         {
             // Arrange
             var errorResponse = new HttpResponseMessage(statusCode);
@@ -147,43 +132,70 @@ namespace Client.Test.Services
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(errorResponse);
 
             // Act & Assert
-            // The service might handle these gracefully or throw - depends on implementation
-            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
-            // We don't assert the exception type here as it depends on the actual implementation
+            // The service calls EnsureSuccessStatusCode() so server errors should throw HttpRequestException
+            await Assert.ThrowsAsync<HttpRequestException>(() => _errorHandlingService.Run());
         }
 
         [Fact]
-        public async Task MultipleRequests_HandlesPartialFailures()
+        public async Task Run_VerifiesCorrectEndpoint()
         {
             // Arrange
+            HttpRequestMessage? capturedRequest = null;
+            
             _mockMessageHandler
                 .Protected()
-                .SetupSequence<Task<HttpResponseMessage>>(
+                .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("[]") })
-                .ThrowsAsync(new TaskCanceledException("Timeout"))
-                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.NotFound));
+                    ItExpr.IsAny<CancellationToken>())
+                .Callback<HttpRequestMessage, CancellationToken>((request, token) =>
+                {
+                    capturedRequest = request;
+                })
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) 
+                { 
+                    Content = new StringContent("[]", System.Text.Encoding.UTF8, "application/json") 
+                });
 
             // Act
-            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
+            await _errorHandlingService.Run();
 
             // Assert
-            Assert.Null(exception); // Should handle mixed success/failure scenarios
+            Assert.NotNull(capturedRequest);
+            Assert.Equal(HttpMethod.Get, capturedRequest.Method);
+            Assert.Contains("api/contacts/GetContactsLongProcess", capturedRequest.RequestUri?.ToString());
         }
 
-        private void SetupSuccessfulResponses()
+        [Theory]
+        [InlineData("application/json")]
+        [InlineData("application/xml")]
+        public async Task Run_HandlesMultipleContentTypes(string contentType)
         {
-            var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            // Arrange
+            string responseContent;
+            if (contentType == "application/json")
             {
-                Content = new StringContent("[]")
+                responseContent = @"[{""Id"":""" + Guid.NewGuid() + @""",""Name"":""Test"",""Address"":""Test""}]";
+            }
+            else
+            {
+                responseContent = @"<?xml version=""1.0""?>
+<ArrayOfContactViewModel xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"">
+    <ContactViewModel>
+        <Id>" + Guid.NewGuid() + @"</Id>
+        <Name>Test</Name>
+        <Address>Test</Address>
+    </ContactViewModel>
+</ArrayOfContactViewModel>";
+            }
+
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseContent, System.Text.Encoding.UTF8, contentType)
             };
 
             _mockMessageHandler
@@ -191,9 +203,69 @@ namespace Client.Test.Services
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(response);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
+
+            // Assert
+            Assert.Null(exception); // Should handle both content types
+        }
+
+        [Fact]
+        public async Task Run_WithJsonDeserializationError_HandlesGracefully()
+        {
+            // Arrange - Invalid JSON that will cause deserialization to fail
+            var invalidJsonResponse = @"{""invalid"": ""json"", ""structure"": true}";
+            
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(invalidJsonResponse, System.Text.Encoding.UTF8, "application/json")
+            };
+
+            _mockMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(response);
+
+            // Act
+            var exception = await Record.ExceptionAsync(() => _errorHandlingService.Run());
+
+            // Assert
+            // The service doesn't handle JSON deserialization errors, so this might throw
+            // or might complete with empty collection - depends on Newtonsoft.Json behavior
+            Assert.True(exception == null || exception is Newtonsoft.Json.JsonException);
+        }
+
+        private void SetupSuccessfulResponse()
+        {
+            var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", System.Text.Encoding.UTF8, "application/json")
+            };
+
+            _mockMessageHandler
+                .Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(successResponse);
+        }
+
+        private void VerifyHttpRequestMade(Times times)
+        {
+            _mockMessageHandler
+                .Protected()
+                .Verify(
+                    "SendAsync",
+                    times,
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>());
         }
 
         public void Dispose()

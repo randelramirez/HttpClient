@@ -22,7 +22,7 @@ namespace Client.Test.Services
 
         public FileUploadServiceTests()
         {
-            _mockMessageHandler = new Mock<HttpMessageHandler>(MockBehavior.Default);
+            _mockMessageHandler = new Mock<HttpMessageHandler>();
             _httpClient = new HttpClient(_mockMessageHandler.Object)
             {
                 BaseAddress = new Uri("https://localhost:44354/")
@@ -52,34 +52,31 @@ namespace Client.Test.Services
         public async Task UploadFileWithMultipartFormData_CreatesCorrectRequest()
         {
             // Arrange
-            HttpRequestMessage capturedRequest = null;
-            var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("Upload successful")
-            };
-
+            HttpRequestMessage? capturedRequest = null;
+            
             _mockMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => 
-                        req.Method == HttpMethod.Post && 
-                        req.RequestUri.ToString().Contains("upload")),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
                 .Callback<HttpRequestMessage, CancellationToken>((request, token) =>
                 {
-                    capturedRequest = request;
+                    if (request.RequestUri != null && request.RequestUri.ToString().Contains("api/files/upload") && 
+                        !request.RequestUri.ToString().Contains("stream") && 
+                        !request.RequestUri.ToString().Contains("progress"))
+                    {
+                        capturedRequest = request;
+                    }
                 })
-                .ReturnsAsync(successResponse);
-
-            SetupOtherUploadResponses();
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Upload successful") });
 
             // Act
             await _fileUploadService.Run();
 
             // Assert
             Assert.NotNull(capturedRequest);
+            Assert.Equal(HttpMethod.Post, capturedRequest.Method);
             Assert.IsType<MultipartFormDataContent>(capturedRequest.Content);
         }
 
@@ -87,33 +84,29 @@ namespace Client.Test.Services
         public async Task UploadFileAsStream_CreatesStreamContent()
         {
             // Arrange
-            HttpRequestMessage capturedRequest = null;
-            var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("Stream upload successful")
-            };
-
+            HttpRequestMessage? capturedRequest = null;
+            
             _mockMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => 
-                        req.RequestUri.ToString().Contains("upload-stream")),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
                 .Callback<HttpRequestMessage, CancellationToken>((request, token) =>
                 {
-                    capturedRequest = request;
+                    if (request.RequestUri != null && request.RequestUri.ToString().Contains("upload-stream"))
+                    {
+                        capturedRequest = request;
+                    }
                 })
-                .ReturnsAsync(successResponse);
-
-            SetupOtherUploadResponses();
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Stream upload successful") });
 
             // Act
             await _fileUploadService.Run();
 
             // Assert
             Assert.NotNull(capturedRequest);
+            Assert.Equal(HttpMethod.Post, capturedRequest.Method);
             Assert.IsType<StreamContent>(capturedRequest.Content);
         }
 
@@ -121,33 +114,29 @@ namespace Client.Test.Services
         public async Task UploadWithProgressTracking_UsesProgressableStreamContent()
         {
             // Arrange
-            HttpRequestMessage capturedRequest = null;
-            var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("Progress upload successful")
-            };
-
+            HttpRequestMessage? capturedRequest = null;
+            
             _mockMessageHandler
                 .Protected()
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => 
-                        req.RequestUri.ToString().Contains("upload-with-progress")),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
                 .Callback<HttpRequestMessage, CancellationToken>((request, token) =>
                 {
-                    capturedRequest = request;
+                    if (request.RequestUri != null && request.RequestUri.ToString().Contains("upload-with-progress"))
+                    {
+                        capturedRequest = request;
+                    }
                 })
-                .ReturnsAsync(successResponse);
-
-            SetupOtherUploadResponses();
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Progress upload successful") });
 
             // Act
             await _fileUploadService.Run();
 
             // Assert
             Assert.NotNull(capturedRequest);
+            Assert.Equal(HttpMethod.Post, capturedRequest.Method);
             Assert.IsType<ProgressableStreamContent>(capturedRequest.Content);
         }
 
@@ -167,15 +156,14 @@ namespace Client.Test.Services
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(errorResponse);
 
             // Act
             var exception = await Record.ExceptionAsync(() => _fileUploadService.Run());
 
             // Assert
-            Assert.Null(exception); // Should handle upload errors gracefully
+            Assert.Null(exception); // Should handle upload errors gracefully via try-catch
         }
 
         [Fact]
@@ -187,15 +175,14 @@ namespace Client.Test.Services
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<CancellationToken>())
                 .ThrowsAsync(new HttpRequestException("Network error"));
 
             // Act
             var exception = await Record.ExceptionAsync(() => _fileUploadService.Run());
 
             // Assert
-            Assert.Null(exception); // Should handle network errors gracefully
+            Assert.Null(exception); // Should handle network errors gracefully via try-catch
         }
 
         [Fact]
@@ -209,8 +196,7 @@ namespace Client.Test.Services
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<CancellationToken>())
                 .Callback<HttpRequestMessage, CancellationToken>((request, token) =>
                 {
                     uploadRequests.Add(request);
@@ -222,9 +208,33 @@ namespace Client.Test.Services
 
             // Assert
             Assert.Equal(3, uploadRequests.Count); // Should make 3 upload requests
-            Assert.Contains(uploadRequests, req => req.RequestUri.ToString().Contains("upload") && !req.RequestUri.ToString().Contains("stream") && !req.RequestUri.ToString().Contains("progress"));
-            Assert.Contains(uploadRequests, req => req.RequestUri.ToString().Contains("upload-stream"));
-            Assert.Contains(uploadRequests, req => req.RequestUri.ToString().Contains("upload-with-progress"));
+            
+            // Verify the correct endpoints were called
+            Assert.Contains(uploadRequests, req => req.RequestUri != null && req.RequestUri.ToString().Contains("api/files/upload") && !req.RequestUri.ToString().Contains("stream") && !req.RequestUri.ToString().Contains("progress"));
+            Assert.Contains(uploadRequests, req => req.RequestUri != null && req.RequestUri.ToString().Contains("api/files/upload-stream"));
+            Assert.Contains(uploadRequests, req => req.RequestUri != null && req.RequestUri.ToString().Contains("api/files/upload-with-progress"));
+        }
+
+        [Fact]
+        public async Task Run_CreatesMultipleHttpClientInstances()
+        {
+            // Arrange
+            var httpClientCallCount = 0;
+            _mockHttpClientFactory.Setup(f => f.CreateClient("ContactsClient"))
+                .Returns(() =>
+                {
+                    httpClientCallCount++;
+                    return _httpClient;
+                });
+
+            SetupSuccessfulUploadResponses();
+
+            // Act
+            await _fileUploadService.Run();
+
+            // Assert
+            // Verify that the service creates a new HttpClient for each upload method
+            Assert.Equal(3, httpClientCallCount);
         }
 
         private void SetupSuccessfulUploadResponses()
@@ -239,46 +249,8 @@ namespace Client.Test.Services
                 .Setup<Task<HttpResponseMessage>>(
                     "SendAsync",
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                )
+                    ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(successResponse);
-        }
-
-        private void SetupOtherUploadResponses()
-        {
-            var responses = new Dictionary<string, HttpResponseMessage>
-            {
-                ["upload"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Multipart upload successful") },
-                ["upload-stream"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Stream upload successful") },
-                ["upload-with-progress"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("Progress upload successful") }
-            };
-
-            _mockMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => !req.RequestUri.ToString().Contains("upload-stream") && !req.RequestUri.ToString().Contains("upload-with-progress")),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ReturnsAsync(responses["upload"]);
-
-            _mockMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => req.RequestUri.ToString().Contains("upload-stream")),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ReturnsAsync(responses["upload-stream"]);
-
-            _mockMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.Is<HttpRequestMessage>(req => req.RequestUri.ToString().Contains("upload-with-progress")),
-                    ItExpr.IsAny<CancellationToken>()
-                )
-                .ReturnsAsync(responses["upload-with-progress"]);
         }
 
         private void VerifyMultipleUploadRequestsMade()
@@ -289,8 +261,7 @@ namespace Client.Test.Services
                     "SendAsync",
                     Times.Exactly(3), // Should make 3 upload requests
                     ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>()
-                );
+                    ItExpr.IsAny<CancellationToken>());
         }
 
         public void Dispose()

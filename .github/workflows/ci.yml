@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, feat/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Cache .NET packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: Run unit tests
+      run: dotnet test --no-build --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage" --results-directory "TestResults"
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.os }}
+        path: TestResults/*.trx
+        
+    - name: Upload code coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: code-coverage-${{ matrix.os }}
+        path: TestResults/**/coverage.cobertura.xml
+
+  validate-projects:
+    name: Validate Project Structure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Validate project files
+      run: |
+        echo "Validating project structure..."
+        
+        # Check if all projects target .NET 9
+        echo "Checking .NET 9 targeting..."
+        find . -name "*.csproj" -exec grep -l "net9.0" {} \; | wc -l
+        
+        # Verify specific projects exist
+        required_projects=("Core/Core.csproj" "Client/Client.csproj" "Client.Test/Client.Test.csproj" "API/API.csproj" "Persistence/Persistence.csproj")
+        for project in "${required_projects[@]}"; do
+          if [ ! -f "$project" ]; then
+            echo "? Required project not found: $project"
+            exit 1
+          else
+            echo "? Found: $project"
+          fi
+        done
+        
+    - name: Check for security vulnerabilities
+      run: dotnet list package --vulnerable --include-transitive
+      
+    - name: Check for outdated packages
+      run: dotnet list package --outdated
