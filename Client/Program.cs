@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Client.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -11,75 +12,145 @@ namespace Client
         static async Task Main(string[] args)
         {
             var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
+            var configuration = BuildConfiguration();
+            
+            ConfigureServices(serviceCollection, configuration);
 
             var serviceProvider = serviceCollection.BuildServiceProvider();
 
             try
             {
-                // Run our IntegrationService containing all samples and
-                // await this call to ensure the application doesn't 
-                // prematurely exit.
-                await serviceProvider.GetService<IService>().Run();
+                var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("Starting HttpClient Best Practices Demo Application");
+
+                // Run our selected service demonstration
+                var service = serviceProvider.GetRequiredService<IService>();
+                await service.Run();
+
+                logger.LogInformation("HttpClient demonstration completed successfully");
             }
             catch (Exception generalException)
             {
-                // log the exception
                 var logger = serviceProvider.GetService<ILogger<Program>>();
-                logger.LogError(generalException,
-                    "An exception happened while running the integration service.");
+                logger?.LogError(generalException, "An exception occurred while running the demonstration");
             }
 
+            Console.WriteLine("\nPress any key to exit...");
             Console.ReadKey();
         }
 
-        private static void ConfigureServices(IServiceCollection serviceCollection)
+        private static IConfiguration BuildConfiguration()
         {
+            return new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+        }
+
+        private static void ConfigureServices(IServiceCollection serviceCollection, IConfiguration configuration)
+        {
+            // Register configuration
+            serviceCollection.AddSingleton(configuration);
+
+            // Configure logging
             serviceCollection.AddLogging(builder =>
             {
                 builder.AddConsole();
                 builder.AddDebug();
+                builder.SetMinimumLevel(LogLevel.Information);
             });
 
+            // Register HttpClient services with Microsoft's recommended patterns
             serviceCollection.AddHttpClientServices();
 
-            // register IService on our container with a 
-            // scoped lifetime
+            // Register all service demonstrations
+            RegisterServiceDemonstrations(serviceCollection);
 
-            // For the CRUD demos
+            // Select which demonstration to run
+            // Uncomment the desired service to run its demonstration
+
+            #region Basic Patterns
+            // Basic CRUD operations with HttpClient
             //serviceCollection.AddScoped<IService, CRUDService>();
 
-            // For stream demos
-            //serviceCollection.AddScoped<IService, StreamService>();
+            // Sample service with different response handling
+            //serviceCollection.AddScoped<IService, SampleService>();
+            #endregion
 
-            // For the HttpClientFactory demos
+            #region HttpClientFactory Patterns
+            // HttpClientFactory management and usage patterns
             //serviceCollection.AddScoped<IService, HttpClientFactoryManagementService>();
 
-
-
-            // For the dealing with errors and faults demos
-            //serviceCollection.AddScoped<IService, ErrorHandlingService>();
-
-            // For the custom http handlers demos
+            // Custom message handlers demonstration
             //serviceCollection.AddScoped<IService, HttpCustomMessageHandlerService>();
+            #endregion
 
-            // For authentication demos
+            #region Advanced Patterns
+            // Authentication patterns (Bearer, Basic, Refresh tokens)
             //serviceCollection.AddScoped<IService, AuthenticationService>();
 
-            // For file upload demos
+            // File upload scenarios (Multipart, Stream, Progress)
             //serviceCollection.AddScoped<IService, FileUploadService>();
 
-            // For concurrency demos
+            // Error handling and fault tolerance
+            //serviceCollection.AddScoped<IService, ErrorHandlingService>();
+
+            // Concurrency and parallel request patterns
             //serviceCollection.AddScoped<IService, ConcurrencyService>();
 
-            // For custom headers demos
+            // Custom headers and request configuration
             //serviceCollection.AddScoped<IService, CustomHeadersService>();
 
-            // For webhook demos
+            // Webhook patterns and batch processing
             //serviceCollection.AddScoped<IService, WebhookService>();
 
-            // For GraphQL demos
-            serviceCollection.AddScoped<IService, GraphQLService>();
+            // GraphQL integration patterns
+            //serviceCollection.AddScoped<IService, GraphQLService>();
+
+            // Stream processing for large payloads
+            //serviceCollection.AddScoped<IService, StreamService>();
+            #endregion
+
+            #region Microsoft Best Practices
+            // ✨ Custom resilience patterns (Educational)
+            //serviceCollection.AddScoped<IService, ResiliencePatternService>();
+
+            // ✨ Performance optimization patterns
+            //serviceCollection.AddScoped<IService, PerformanceOptimizationService>();
+
+            // ✨ Production-ready patterns (Headers, Security, Monitoring)
+            //serviceCollection.AddScoped<IService, ProductionReadyHttpClientService>();
+            #endregion
+
+            #region Microsoft Recommended (Polly)
+            // 🏆 RECOMMENDED: Microsoft's official Polly resilience patterns
+            serviceCollection.AddScoped<IService, PollyResilienceService>();
+            #endregion
+        }
+
+        private static void RegisterServiceDemonstrations(IServiceCollection serviceCollection)
+        {
+            // Register all service demonstrations as scoped services
+            serviceCollection.AddScoped<CRUDService>();
+            serviceCollection.AddScoped<SampleService>();
+            serviceCollection.AddScoped<HttpClientFactoryManagementService>();
+            serviceCollection.AddScoped<HttpCustomMessageHandlerService>();
+            serviceCollection.AddScoped<AuthenticationService>();
+            serviceCollection.AddScoped<FileUploadService>();
+            serviceCollection.AddScoped<ErrorHandlingService>();
+            serviceCollection.AddScoped<ConcurrencyService>();
+            serviceCollection.AddScoped<CustomHeadersService>();
+            serviceCollection.AddScoped<WebhookService>();
+            serviceCollection.AddScoped<GraphQLService>();
+            serviceCollection.AddScoped<StreamService>();
+            
+            // Custom implementations (Educational)
+            serviceCollection.AddScoped<ResiliencePatternService>();
+            serviceCollection.AddScoped<PerformanceOptimizationService>();
+            serviceCollection.AddScoped<ProductionReadyHttpClientService>();
+            
+            // Microsoft recommended Polly implementation
+            serviceCollection.AddScoped<PollyResilienceService>();
         }
     }
 }
