@@ -23,11 +23,8 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       
-    - name: Build for analysis
-      run: dotnet build --no-restore --configuration Release
-      
-    - name: Run code analysis
-      run: dotnet build --verbosity normal --configuration Release /p:TreatWarningsAsErrors=true
+    - name: Build with warnings as errors
+      run: dotnet build --no-restore --configuration Release /p:TreatWarningsAsErrors=true
       
   format-check:
     name: Format Check
@@ -41,6 +38,9 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore
         
     - name: Check code formatting
       run: dotnet format --verify-no-changes --verbosity diagnostic

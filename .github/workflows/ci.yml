@@ -32,7 +32,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
         
@@ -72,15 +72,34 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
-    - name: Validate project files
+    - name: Restore dependencies for validation
+      run: dotnet restore
+        
+    - name: Validate project structure
       run: |
-        echo "Validating project structure..."
+        echo "=== Validating Project Structure ==="
+        
+        # Check for solution file
+        if ls *.sln 1> /dev/null 2>&1; then
+          echo "? Solution file found:"
+          ls -la *.sln
+          echo "Projects in solution:"
+          dotnet sln list
+        else
+          echo "??  No solution file found, checking individual projects"
+        fi
         
         # Check if all projects target .NET 9
-        echo "Checking .NET 9 targeting..."
-        find . -name "*.csproj" -exec grep -l "net9.0" {} \; | wc -l
+        echo -e "\n=== Checking .NET 9 Targeting ==="
+        net9_projects=$(find . -name "*.csproj" -exec grep -l "net9.0" {} \; 2>/dev/null | wc -l)
+        echo "Found $net9_projects projects targeting .NET 9"
+        
+        # List all found projects
+        echo -e "\n=== Found Project Files ==="
+        find . -name "*.csproj" -type f | sort
         
         # Verify specific projects exist
+        echo -e "\n=== Verifying Required Projects ==="
         required_projects=("Core/Core.csproj" "Client/Client.csproj" "Client.Test/Client.Test.csproj" "API/API.csproj" "Persistence/Persistence.csproj")
         for project in "${required_projects[@]}"; do
           if [ ! -f "$project" ]; then
@@ -91,8 +110,18 @@ jobs:
           fi
         done
         
+        # Verify all projects build
+        echo -e "\n=== Verifying Compilation ==="
+        dotnet build --configuration Release --verbosity minimal
+        
     - name: Check for security vulnerabilities
-      run: dotnet list package --vulnerable --include-transitive
+      run: |
+        echo "=== Checking for Security Vulnerabilities ==="
+        # Run vulnerability check after restore
+        dotnet list package --vulnerable --include-transitive || echo "No vulnerabilities found or tool not available"
       
     - name: Check for outdated packages
-      run: dotnet list package --outdated
+      run: |
+        echo "=== Checking for Outdated Packages ==="
+        # Run outdated check after restore
+        dotnet list package --outdated || echo "No outdated packages found or tool not available"

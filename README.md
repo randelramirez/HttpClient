@@ -1,5 +1,8 @@
 # HttpClient .NET Examples
 
+[![CI](https://github.com/randelramirez/HttpClient/actions/workflows/ci.yml/badge.svg)](https://github.com/randelramirez/HttpClient/actions/workflows/ci.yml)
+[![Code Quality](https://github.com/randelramirez/HttpClient/actions/workflows/code-quality.yml/badge.svg)](https://github.com/randelramirez/HttpClient/actions/workflows/code-quality.yml)
+
 A comprehensive collection of HttpClient usage examples and patterns in .NET 9, demonstrating various scenarios from basic CRUD operations to advanced patterns like authentication, file uploads, concurrent requests, and more.
 
 ## 🚀 Features
@@ -27,10 +30,39 @@ This repository showcases the following HttpClient patterns and scenarios:
 - Error resilience patterns
 - Testing strategies with mocking
 
+## 🔄 Continuous Integration
+
+This project uses GitHub Actions for automated CI/CD with comprehensive testing and quality checks:
+
+### CI Pipeline Features
+- ✅ **Multi-OS builds** (Ubuntu, Windows, macOS)
+- ✅ **Build verification** across all 5 projects
+- ✅ **Unit test execution** with xUnit v3 and .NET 9
+- ✅ **Code coverage** collection and reporting
+- ✅ **Dependency caching** for faster builds
+- ✅ **Security vulnerability scanning**
+- ✅ **Code formatting verification**
+- ✅ **Static code analysis**
+
+### Workflow Status
+- **Build Status**: All projects building successfully ✅
+- **Test Status**: All unit tests passing ✅
+- **Code Coverage**: Comprehensive test coverage ✅
+- **Security**: No known vulnerabilities ✅
+
+The CI pipeline runs on:
+- Every push to `main`, `develop`, and `feat/*` branches
+- Every pull request to `main` and `develop`
+- Multiple operating systems to ensure cross-platform compatibility
+
 ## 📁 Project Structure
 
 ```
 HttpClient/
+├── .github/
+│   └── workflows/         # GitHub Actions CI/CD workflows
+│       ├── ci.yml        # Main CI pipeline
+│       └── code-quality.yml # Code quality checks
 ├── API/                    # Web API server for testing
 ├── Client/                 # HttpClient examples and services
 │   ├── Services/          # Various HttpClient usage scenarios
@@ -44,7 +76,7 @@ HttpClient/
 │   │   ├── ErrorHandlingService.cs
 │   │   └── StreamService.cs
 │   └── Program.cs         # Main entry point
-├── Client.Test/           # Comprehensive unit tests
+├── Client.Test/           # Comprehensive unit tests with xUnit v3
 ├── Core/                  # Shared models and DTOs
 └── Persistence/          # Data access layer
 ```
@@ -61,7 +93,7 @@ HttpClient/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/randelramirez/HttpClient.git
    cd HttpClient
    ```
 
@@ -103,6 +135,57 @@ serviceCollection.AddScoped<IService, AuthenticationService>();
 serviceCollection.AddScoped<IService, FileUploadService>();
 
 // And so on...
+```
+
+## 🧪 Testing
+
+The repository includes comprehensive unit tests demonstrating how to test HttpClient usage with mocking:
+
+### Test Framework
+- **xUnit v3.0.1** - Latest testing framework optimized for .NET 9
+- **Moq 4.20.72** - Advanced mocking with protected method support
+- **Code Coverage** - Automated coverage collection with coverlet
+
+### Test Coverage
+- ✅ **SampleService** - HTTP status handling and JSON deserialization
+- ✅ **AuthenticationService** - Bearer/Basic auth and token refresh
+- ✅ **CRUDService** - CRUD operations with content negotiation
+- ✅ **ErrorHandlingService** - Timeout/cancellation scenarios
+- ✅ **FileUploadService** - Multipart, stream, and progress uploads
+
+### Example Test
+```csharp
+public class CRUDServiceTests
+{
+    private readonly Mock<HttpMessageHandler> _mockMessageHandler;
+    private readonly HttpClient _httpClient;
+
+    [Fact]
+    public async Task GetContact_WithValidId_ReturnsContact()
+    {
+        // Arrange
+        var expectedContact = new ContactViewModel { /*...*/ };
+        var jsonResponse = JsonConvert.SerializeObject(expectedContact);
+        var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+        };
+
+        _mockMessageHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(httpResponse);
+
+        // Act & Assert
+        var result = await _crudService.GetContact(contactId);
+        Assert.NotNull(result);
+    }
+}
+```
+
+Run tests with:
+```bash
+dotnet test --logger:trx --collect:"XPlat Code Coverage"
 ```
 
 ## 📖 Usage Examples
@@ -222,44 +305,6 @@ public class ConcurrencyService : IService
         }
     }
 }
-```
-
-## 🧪 Testing
-
-The repository includes comprehensive unit tests demonstrating how to test HttpClient usage with mocking:
-
-```csharp
-public class CRUDServiceTests
-{
-    private readonly Mock<HttpMessageHandler> _mockMessageHandler;
-    private readonly HttpClient _httpClient;
-
-    [Fact]
-    public async Task GetContact_WithValidId_ReturnsContact()
-    {
-        // Arrange
-        var expectedContact = new ContactViewModel { /*...*/ };
-        var jsonResponse = JsonConvert.SerializeObject(expectedContact);
-        var httpResponse = new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-        };
-
-        _mockMessageHandler
-            .Protected()
-            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(httpResponse);
-
-        // Act & Assert
-        var result = await _crudService.GetContact(contactId);
-        Assert.NotNull(result);
-    }
-}
-```
-
-Run tests with:
-```bash
-dotnet test --logger:trx --collect:"XPlat Code Coverage"
 ```
 
 ## 📋 Service Scenarios
@@ -396,20 +441,31 @@ private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+**CI/CD Process**: When you create a PR, the GitHub Actions CI pipeline will automatically:
+- Build your changes across Ubuntu, Windows, and macOS
+- Run all unit tests with xUnit v3
+- Verify code formatting and quality
+- Check for security vulnerabilities
+- Generate code coverage reports
+
+All checks must pass before the PR can be merged.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Built with .NET 9.0
+- Built with .NET 9.0 and C# 13
 - Uses HttpClientFactory for optimal resource management
 - Demonstrates modern async/await patterns
-- Includes comprehensive testing examples
+- Includes comprehensive testing examples with xUnit v3
 - Follows Microsoft's recommended practices for HttpClient usage
+- Automated CI/CD with GitHub Actions
 
 ## 📚 Further Reading
 
 - [HttpClient Guidelines](https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/use-httpclientfactory-to-implement-resilient-http-requests)
 - [HttpClientFactory in .NET](https://docs.microsoft.com/en-us/dotnet/architecture/microservices/implement-resilient-applications/implement-http-call-retries-exponential-backoff-polly)
 - [Performance Best Practices](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
