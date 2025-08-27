@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, feat/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Cache .NET packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: Run unit tests
+      run: dotnet test --no-build --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage" --results-directory "TestResults"
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.os }}
+        path: TestResults/*.trx
+        
+    - name: Upload code coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: code-coverage-${{ matrix.os }}
+        path: TestResults/**/coverage.cobertura.xml
+
+  validate-projects:
+    name: Validate Project Structure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies for validation
+      run: dotnet restore
+        
+    - name: Validate project structure
+      run: |
+        echo "=== Validating Project Structure ==="
+        
+        # Check for solution file
+        if ls *.sln 1> /dev/null 2>&1; then
+          echo "? Solution file found:"
+          ls -la *.sln
+          echo "Projects in solution:"
+          dotnet sln list
+        else
+          echo "??  No solution file found, checking individual projects"
+        fi
+        
+        # Check if all projects target .NET 9
+        echo -e "\n=== Checking .NET 9 Targeting ==="
+        net9_projects=$(find . -name "*.csproj" -exec grep -l "net9.0" {} \; 2>/dev/null | wc -l)
+        echo "Found $net9_projects projects targeting .NET 9"
+        
+        # List all found projects
+        echo -e "\n=== Found Project Files ==="
+        find . -name "*.csproj" -type f | sort
+        
+        # Verify specific projects exist
+        echo -e "\n=== Verifying Required Projects ==="
+        required_projects=("Core/Core.csproj" "Client/Client.csproj" "Client.Test/Client.Test.csproj" "API/API.csproj" "Persistence/Persistence.csproj")
+        for project in "${required_projects[@]}"; do
+          if [ ! -f "$project" ]; then
+            echo "? Required project not found: $project"
+            exit 1
+          else
+            echo "? Found: $project"
+          fi
+        done
+        
+        # Verify all projects build
+        echo -e "\n=== Verifying Compilation ==="
+        dotnet build --configuration Release --verbosity minimal
+        
+    - name: Check for security vulnerabilities
+      run: |
+        echo "=== Checking for Security Vulnerabilities ==="
+        # Run vulnerability check after restore
+        dotnet list package --vulnerable --include-transitive || echo "No vulnerabilities found or tool not available"
+      
+    - name: Check for outdated packages
+      run: |
+        echo "=== Checking for Outdated Packages ==="
+        # Run outdated check after restore
+        dotnet list package --outdated || echo "No outdated packages found or tool not available"

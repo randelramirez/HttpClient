@@ -13,18 +13,37 @@ namespace Client.Services
 {
     public class StreamService : IService
     {
+        private static readonly object _lock = new object();
+        private static HttpClient httpClient;
 
-        private static HttpClient httpClient = new HttpClient(
-            new HttpClientHandler()
+        static StreamService()
+        {
+            InitializeHttpClient();
+        }
+
+        private static void InitializeHttpClient()
+        {
+            httpClient = new HttpClient(new HttpClientHandler()
             {
                 AutomaticDecompression = System.Net.DecompressionMethods.GZip
-            });
+            })
+            {
+                BaseAddress = new Uri("https://localhost:44354/"),
+                Timeout = new TimeSpan(0, 0, 30)
+            };
+            httpClient.DefaultRequestHeaders.Clear();
+        }
 
         public StreamService()
         {
-            httpClient.BaseAddress = new Uri("https://localhost:44354/");
-            httpClient.Timeout = new TimeSpan(0, 0, 30);
-            httpClient.DefaultRequestHeaders.Clear();
+            // Ensure HttpClient is properly initialized
+            lock (_lock)
+            {
+                if (httpClient == null || httpClient.BaseAddress == null)
+                {
+                    InitializeHttpClient();
+                }
+            }
         }
 
         public async Task Run()
